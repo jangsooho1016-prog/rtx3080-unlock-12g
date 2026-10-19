@@ -4,9 +4,10 @@
 #include <Protocol/DevicePath.h>
 #include <stddef.h>
 
-#define GU_BOARD_ID 0x220610deU
-#define GU_BOARD_SUBSYSTEM 0x38901462U
-#define GU_BOARD_CHIP 0xb72000a1U
+#include "board_profile.h"
+#if defined(GU_TARGET_PCI_ID) && GU_TARGET_PCI_ID != GU_BOARD_ID
+#error "GU_TARGET_PCI_ID (build.ps1) must equal GU_BOARD_ID (board_ids.h)."
+#endif
 typedef struct GU_DMA GU_DMA;
 struct GU_DMA {
   GU_DMA *next;

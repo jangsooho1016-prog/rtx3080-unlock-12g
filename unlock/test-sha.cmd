@@ -13,12 +13,12 @@ if /I "%~1"=="--red" (
     echo usage: test-sha.cmd [--red]
     exit /b 2
 )
-"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -std=c11 -O2 -Wall -Wextra -Werror -D_CRT_SECURE_NO_WARNINGS -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 tests\test_sha256.c "%GU_SHA_SOURCE%" -o "%GU_SHA_TEST%"
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -DGU_BOARD_TEST_FIXTURE -std=c11 -O2 -Wall -Wextra -Werror -D_CRT_SECURE_NO_WARNINGS -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 tests\test_sha256.c "%GU_SHA_SOURCE%" -o "%GU_SHA_TEST%"
 if errorlevel 1 exit /b 1
 "%GU_SHA_TEST%" "..\analysis\pinned-assets\gsp_ga10x.bin" "..\evidence\boot-03\PROM.BIN"
 if errorlevel 1 exit /b 1
 if /I "%~1"=="--red" exit /b 0
-"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -target x86_64-pc-windows-msvc -std=c11 -Os -ffreestanding -fno-builtin -fno-stack-protector -fshort-wchar -mno-red-zone -Wall -Wextra -Werror -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 -c sha256.c -o build\sha-freestanding.obj
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -DGU_BOARD_TEST_FIXTURE -target x86_64-pc-windows-msvc -std=c11 -Os -ffreestanding -fno-builtin -fno-stack-protector -fshort-wchar -mno-red-zone -Wall -Wextra -Werror -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 -c sha256.c -o build\sha-freestanding.obj
 if errorlevel 1 exit /b 1
 echo PASS freestanding x86_64-pc-windows-msvc compilation
 exit /b 0

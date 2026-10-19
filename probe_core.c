@@ -1,4 +1,5 @@
 #include "probe_core.h"
+#include "unlock/board_ids.h"
 
 static const UINT32 Offsets[PROBE_SAMPLE_COUNT] = {
   0x000000, 0x118128, 0x118234, 0x110100, 0x1fa824, 0x1fa828,
@@ -7,8 +8,10 @@ static const UINT32 Offsets[PROBE_SAMPLE_COUNT] = {
 };
 
 BOOLEAN ProbeMatches(const UINT32 *Config) {
-  return Config != NULL && Config[0] == 0x220610de &&
-         Config[11] == 0x38901462 && (Config[2] >> 24) == 3;
+  /* Subsystem device ID is measured by this probe, so only the MSI vendor
+     half is required here. */
+  return Config != NULL && Config[0] == GU_BOARD_ID &&
+         (Config[11] & 0xffffU) == GU_BOARD_SUBSYSTEM_VENDOR && (Config[2] >> 24) == 3;
 }
 
 EFI_STATUS ProbeCollect(EFI_PCI_IO_PROTOCOL *Pci, EFI_BOOT_SERVICES *Bs,

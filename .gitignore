@@ -28,3 +28,5 @@ __pycache__/
 *.key
 .DS_Store
 Thumbs.db
+unlock/board_measured.h
+probe/build/

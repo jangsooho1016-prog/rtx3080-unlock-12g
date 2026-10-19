@@ -6,7 +6,7 @@ if errorlevel 1 exit /b 1
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul
 if errorlevel 1 exit /b 1
 set "TRACE_CLANG=C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe"
-set "TRACE_FLAGS=-std=c11 -O1 -Wall -Wextra -Werror -Wno-unused-parameter -D_CRT_SECURE_NO_WARNINGS -D__KERNEL__ -DGU_UEFI_PORT -DGU_TARGET_PCI_ID=0x220610deU -I vendor -I compat -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64"
+set "TRACE_FLAGS=-std=c11 -O1 -Wall -Wextra -Werror -Wno-unused-parameter -D_CRT_SECURE_NO_WARNINGS -D__KERNEL__ -DGU_UEFI_PORT -DGU_BOARD_TEST_FIXTURE -DGU_TARGET_PCI_ID=0x220610deU -I vendor -I compat -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64"
 set "TRACE_SOURCES=tests\test_fwsec_trace.c port.c compat.c vendor\prep_610.c vendor\layout_610.c vendor\vbios_610.c vendor\gfw_eval.c"
 "%TRACE_CLANG%" %TRACE_FLAGS% %TRACE_SOURCES% vendor\unlock_610.c -o build\fwsec-current-trace.exe
 if errorlevel 1 exit /b 1

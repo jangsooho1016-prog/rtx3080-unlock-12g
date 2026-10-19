@@ -1,4 +1,5 @@
 #include "probe_core.h"
+#include "unlock/board_ids.h"
 #include <Protocol/LoadedImage.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/SimpleFileSystem.h>
@@ -178,8 +179,8 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *Table) {
   St = Table; Bs = St->BootServices; Used = 0; Log[0] = 0;
   Say(L"\r\nRTX 3080 read-only diagnostic v0.1\r\n");
   Say(L"Collects BIOS and preboot state. This does not unlock the GPU.\r\n");
-  Text("RTX3080 read-only diagnostic v0.1\r\n");
-  Text("Expected PCI 10de:2206 subsystem 1462:3890\r\n");
+  Text("RTX3080 read-only diagnostic v0.1 (12G port)\r\n");
+  Text("Expected " GU_BOARD_NAME ": PCI 10de:220a subsystem 1462:xxxx\r\n");
   Output = OpenOutput(Image);
   Status = Bs->LocateHandleBuffer(ByProtocol, &PciGuid, NULL, &Count, &Handles);
   Hex("pci_enumeration_status", Status);
@@ -205,7 +206,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *Table) {
   Hex("matching_cards", Matches);
   RecordGop();
   if (Matches == 1) {
-    Say(L"Expected MSI RTX 3080 found. Reading its existing state...\r\n");
+    Say(L"Expected MSI RTX 3080 12G found. Reading its existing state...\r\n");
     Text("[TARGET]\r\n"); PathHasUsb(SelectedHandle, TRUE);
     Status = ProbeCollect(Selected, Bs, &Result);
     Hex("collect_status", Status);

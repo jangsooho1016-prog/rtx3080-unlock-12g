@@ -244,7 +244,8 @@ int main(void) {
 
   reset(); config[0] = 0x220d10de;
   CHECK(ProbeCollect(&pci, &bs, &result) == EFI_UNSUPPORTED && reads == 0);
-  reset(); config[11] = 0x12341462;
+  /* Non-MSI subsystem vendor is rejected; any MSI subsystem device is probed. */
+  reset(); config[11] = 0x38901043;
   CHECK(ProbeCollect(&pci, &bs, &result) == EFI_UNSUPPORTED && reads == 0);
   reset(); config[2] = 0x04000000;
   CHECK(ProbeCollect(&pci, &bs, &result) == EFI_UNSUPPORTED && reads == 0);
