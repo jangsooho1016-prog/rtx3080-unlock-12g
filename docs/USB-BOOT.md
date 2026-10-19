@@ -1,13 +1,13 @@
 # USB 준비 및 부팅
 
-이 안내는 README에 명시된 MSI RTX 3080 실험 환경을 대상으로 합니다. 기존 실행은 확인됐지만 새 FAT32 USB로 옮긴 구성의 실제 부팅은 아직 검증하지 않았습니다.
+이 안내는 README에 명시된 MSI RTX 3080 SUPRIM X 12G LHR / ASUS TUF GAMING Z690-PLUS D4 환경을 대상으로 합니다. 2026-10-19 이 PC에서 새 FAT32 USB로 실제 부팅·실행을 확인했습니다.
 
 ## 준비
 
-- x64 UEFI 환경, Secure Boot 해제, Intel 내장그래픽에 연결한 화면.
+- x64 UEFI 환경, Secure Boot 해제, Intel 내장그래픽에 연결한 화면. ASUS BIOS: `Advanced → System Agent (SA) Configuration → Graphics Configuration`에서 Primary Display=`IGFX`, iGPU Multi-Monitor=`Enabled`.
 - 비어 있는 FAT32 USB. 포맷이 필요하면 USB의 기존 파일을 먼저 백업하고 대상 장치를 확인합니다.
 - 빌드한 `BOOTX64.EFI` 또는 제공되는 USB 템플릿.
-- `unlock/assets.json`과 이름·크기·SHA256이 일치하는 자산 5개. 자산 준비 방식은 [상위 프로젝트의 firmware 문서](https://github.com/Zagitta/gpu-unlock/tree/0ebdb1c6308b6a2072be5bf04513472942541956/firmware)를 참고합니다.
+- `unlock/assets.json`과 이름·크기·SHA256이 일치하는 자산 5개. 자산 준비 방식은 [PORT-3080-12G.md](PORT-3080-12G.md#실행-자산-5개)를 참고합니다.
 
 Windows 장치 암호화/BitLocker를 사용하는 PC에서는 펌웨어 설정 변경 전에 복구 키를 확인해 두세요.
 
@@ -45,8 +45,8 @@ USB:/
 
 ## 실행
 
-1. Windows 작업을 저장하고 PC를 완전히 종료한 뒤 전원을 켭니다. 이미 드라이버가 사용한 GPU의 warm 상태에서는 검사가 거부될 수 있습니다.
-2. 메인보드의 부팅 메뉴에서 **UEFI USB**를 선택합니다. 검증한 ASUS 보드에서는 F8을 사용했습니다.
+1. Windows 작업을 저장하고 PC를 완전히 종료한 뒤 전원을 켭니다(빠른 시작이 켜져 있으면 Shift+시스템 종료). 이미 드라이버가 사용한 GPU의 warm 상태에서는 검사가 거부될 수 있습니다.
+2. 메인보드의 부팅 메뉴에서 **UEFI USB**를 선택합니다. 이 PC(ASUS TUF GAMING Z690-PLUS D4)에서는 F8을 사용합니다.
 3. `READY`까지 사전 검사가 끝나면 **U를 한 번** 누릅니다. Esc 또는 U 없이 30초 대기는 취소입니다.
 4. 실행 중에는 USB를 뽑거나 재부팅하지 않습니다.
 5. `UEFI transaction completed and cleaned up`이 표시되고 펌웨어로 돌아오면 **Windows Boot Manager**를 선택합니다. 중간에 재부팅하면 적용 상태가 유지되지 않을 수 있습니다.

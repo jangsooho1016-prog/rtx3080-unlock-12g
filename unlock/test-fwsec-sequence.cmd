@@ -12,9 +12,9 @@ set "TRACE_SOURCES=tests\test_fwsec_trace.c port.c compat.c vendor\prep_610.c ve
 if errorlevel 1 exit /b 1
 "%TRACE_CLANG%" %TRACE_FLAGS% %TRACE_SOURCES% build\reference-v06\vendor\unlock_610.c -o build\fwsec-v06-trace.exe
 if errorlevel 1 exit /b 1
-build\fwsec-current-trace.exe "..\evidence\boot-03\PROM.BIN" "..\analysis\pinned-assets" build\fwsec-current.trace
+build\fwsec-current-trace.exe "..\upstream-10gb\evidence\boot-03\PROM.BIN" "..\analysis\pinned-assets" build\fwsec-current.trace
 if errorlevel 1 exit /b 1
-build\fwsec-v06-trace.exe "..\evidence\boot-03\PROM.BIN" "..\analysis\pinned-assets" build\fwsec-v06.trace
+build\fwsec-v06-trace.exe "..\upstream-10gb\evidence\boot-03\PROM.BIN" "..\analysis\pinned-assets" build\fwsec-v06.trace
 if errorlevel 1 exit /b 1
 python tests\check_fwsec_sequence.py
 exit /b %errorlevel%

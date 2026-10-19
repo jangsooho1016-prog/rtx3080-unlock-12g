@@ -15,7 +15,7 @@ if /I "%~1"=="--red" (
 )
 "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -DGU_BOARD_TEST_FIXTURE -std=c11 -O2 -Wall -Wextra -Werror -D_CRT_SECURE_NO_WARNINGS -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 tests\test_checks.c "%GU_CHECKS_SOURCE%" -o "%GU_CHECKS_TEST%"
 if errorlevel 1 exit /b 1
-"%GU_CHECKS_TEST%" "..\evidence\boot-03\REPORT.TXT"
+"%GU_CHECKS_TEST%" "..\upstream-10gb\evidence\boot-03\REPORT.TXT"
 if errorlevel 1 exit /b 1
 if /I "%~1"=="--red" exit /b 0
 "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\Llvm\x64\bin\clang.exe" -DGU_BOARD_TEST_FIXTURE -target x86_64-pc-windows-msvc -std=c11 -Os -ffreestanding -fno-builtin -fno-stack-protector -fshort-wchar -mno-red-zone -Wall -Wextra -Werror -I ..\deps\edk2\MdePkg\Include -I ..\deps\edk2\MdePkg\Include\X64 -c checks.c -o build\checks-freestanding.obj

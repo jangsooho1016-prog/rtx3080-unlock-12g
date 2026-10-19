@@ -9,7 +9,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\test-all.ps1
 ```
 
-기본 검사는 probe, port/Bus Master, preflight, runtime, PE 거부 검사와 USB 패키지 도구를 실행합니다. `evidence/boot-03/REPORT.TXT`를 preflight fixture로 사용합니다. GPU와 UEFI 서비스는 모의 환경입니다.
+기본 검사는 probe, port/Bus Master, preflight, runtime, PE 거부 검사와 USB 패키지 도구를 실행합니다. `upstream-10gb/evidence/boot-03/REPORT.TXT`를 preflight fixture로 사용합니다. GPU와 UEFI 서비스는 모의 환경입니다.
 
 Python 패키지 검사만 실행하려면 다음 명령을 사용합니다.
 
@@ -22,7 +22,7 @@ python -m unittest discover -s tools -p "test_*.py" -v
 다음 파일을 준비한 뒤 `-WithLocalFixtures`를 지정합니다.
 
 - `analysis/pinned-assets/`: `unlock/assets.json`의 5개 자산.
-- `evidence/boot-03/PROM.BIN`: 1MiB, SHA256 `F3DC8F07B0B8C9856D192DF172DFA7F7F84AC17EF6EDFDB448AD7FA94EFD2789`.
+- `upstream-10gb/evidence/boot-03/PROM.BIN`: 1MiB, SHA256 `F3DC8F07B0B8C9856D192DF172DFA7F7F84AC17EF6EDFDB448AD7FA94EFD2789`.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\test-all.ps1 -WithLocalFixtures
