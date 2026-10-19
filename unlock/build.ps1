@@ -1,3 +1,4 @@
+param([switch]$Ss1Full)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 $llvmRoot = 'C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/Llvm/x64/bin'
@@ -10,7 +11,7 @@ $sources = @('app','app_io','ownership','format','runtime','sha256','checks','po
 $objects = @()
 foreach ($source in $sources) {
     $object = 'build/' + ($source -replace '/','_') + '.obj'
-    & "$llvmRoot/clang.exe" -target x86_64-pc-windows-msvc -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -mno-red-zone -fshort-wchar -Os -Wall -Wextra -Werror -Wno-unused-parameter -D__KERNEL__ -DGU_UEFI_PORT -DGU_TARGET_PCI_ID=0x220a10deU -I compat -I ../deps/edk2/MdePkg/Include -I ../deps/edk2/MdePkg/Include/X64 -c "$source.c" -o $object
+    & "$llvmRoot/clang.exe" -target x86_64-pc-windows-msvc -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -mno-red-zone -fshort-wchar -Os -Wall -Wextra -Werror -Wno-unused-parameter -D__KERNEL__ -DGU_UEFI_PORT -DGU_TARGET_PCI_ID=0x220a10deU $(if ($Ss1Full) { '-DGU_SS1_FULL=1' } else { '-DGU_SS1_FULL=0' }) -I compat -I ../deps/edk2/MdePkg/Include -I ../deps/edk2/MdePkg/Include/X64 -c "$source.c" -o $object
     if ($LASTEXITCODE -ne 0) { throw "Compile failed: $source" }
     $objects += $object
 }
@@ -24,7 +25,7 @@ $inputs = @(Get-ChildItem -LiteralPath . -Recurse -File | Where-Object {
     [ordered]@{ Path=$_.FullName.Substring($PSScriptRoot.Length+1); Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
 })
 [ordered]@{
-    BuiltUtc=[DateTime]::UtcNow.ToString('o'); TargetPci='220a10de';
+    BuiltUtc=[DateTime]::UtcNow.ToString('o'); TargetPci='220a10de'; Ss1Full=[bool]$Ss1Full;
     SourceManifestSha256=(Get-FileHash -LiteralPath '../SOURCE-MANIFEST.json' -Algorithm SHA256).Hash;
     EfiSha256=(Get-FileHash -LiteralPath 'build/BOOTX64.EFI' -Algorithm SHA256).Hash;
     PeVerificationSha256=(Get-FileHash -LiteralPath 'build/pe-verification.json' -Algorithm SHA256).Hash;

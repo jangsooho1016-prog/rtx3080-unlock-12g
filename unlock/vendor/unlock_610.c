@@ -27,6 +27,13 @@
 #include "../port.h"
 #endif
 
+/* SS1 policy. Upstream writes SS1=8 (GU_SS1_FULL=1). The 12G port defaults to
+ * preserving the cold SS1 value (SS0 only), following the GA107 port where SS1
+ * is an explicit opt-in experiment. */
+#ifndef GU_SS1_FULL
+#define GU_SS1_FULL 1
+#endif
+
 #define SEC2_BASE 0x00840000u
 #define SEC2_FBIF 0x00840600u
 #define SEC2_FALCON2 0x00841000u
@@ -34,6 +41,13 @@
  * cold). Both get the same per-field value 8. */
 #define GU_SS0_UNLOCK 0x88888888u
 #define GU_SS1_UNLOCK 0x8u
+#if GU_SS1_FULL
+#define GU_SS1_EXPECTED GU_SS1_UNLOCK
+#elif defined(GU_BOARD_COLD_SS1)
+#define GU_SS1_EXPECTED GU_BOARD_COLD_SS1
+#else
+#error "SS1 preserve mode requires GU_BOARD_COLD_SS1 from the board profile"
+#endif
 #define BOOTER_MAGIC 0x314c5442u
 #define BOOTER_FILE "gpu-unlock/610.43.03/booter_load_ga102.bin"
 #define V67_FILE "gpu-unlock/610.43.03/v67-ga102-610.43.03.bin"
@@ -1212,8 +1226,20 @@ static int write_selector(struct unlock_transaction_work *work, const char *name
 static int unlock_transaction_selector(struct unlock_transaction_work *work)
 {
 	int ret = write_selector(work, "SS0", GU_FEAT_SS0_OFFSET, GU_SS0_UNLOCK);
-
+#if GU_SS1_FULL
 	return ret ? ret : write_selector(work, "SS1", GU_FEAT_SS1_OFFSET, GU_SS1_UNLOCK);
+#else
+	u32 ss1;
+
+	if (ret)
+		return ret;
+	/* Preserve mode: never write SS1, only prove it is still the cold value. */
+	if (read_bar(work, GU_FEAT_SS1_OFFSET, &ss1) || inaccessible(ss1))
+		return GU_RESULT(-ENODEV);
+	dev_info(&work->pdev->dev, "selector preserve: SS1=%#x expected=%#x (no write)\n",
+		 ss1, GU_SS1_EXPECTED);
+	return GU_RESULT(ss1 == GU_SS1_EXPECTED ? 0 : -EIO);
+#endif
 }
 
 /* Reset SEC2 after FLR and leave it halted with reset released. Do not reset
@@ -1366,8 +1392,8 @@ static int unlock_transaction_reset(struct unlock_transaction_work *work)
 	    read_bar(work, GU_FEAT_SS1_OFFSET, &ss1) || ss1 == ~0u)
 		return GU_RESULT(-ENODEV);
 	dev_info(&work->pdev->dev, "pre-FLR selectors: ss0=%#x expected=%#x ss1=%#x expected=%#x\n",
-		ss0, GU_SS0_UNLOCK, ss1, GU_SS1_UNLOCK);
-	if (ss0 != GU_SS0_UNLOCK || ss1 != GU_SS1_UNLOCK)
+		ss0, GU_SS0_UNLOCK, ss1, GU_SS1_EXPECTED);
+	if (ss0 != GU_SS0_UNLOCK || ss1 != GU_SS1_EXPECTED)
 		return GU_RESULT(-EIO);
 	pci_clear_master(work->pdev);
 	work->master = false;
@@ -1444,7 +1470,7 @@ static int unlock_transaction_reset(struct unlock_transaction_work *work)
 		dev_err(&work->pdev->dev, "post-FLR WPR2 remains enabled: lo=%#x hi=%#x; stock driver requires HI.VAL=0\n", lo, hi);
 		return GU_RESULT(-EBUSY);
 	}
-	if (ss0 != GU_SS0_UNLOCK || ss1 != GU_SS1_UNLOCK)
+	if (ss0 != GU_SS0_UNLOCK || ss1 != GU_SS1_EXPECTED)
 		return GU_RESULT(-EIO);
 	work->quiesced = true;
 #ifdef GU_UEFI_PORT

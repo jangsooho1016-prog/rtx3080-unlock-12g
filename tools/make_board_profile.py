@@ -152,8 +152,11 @@ def build_profile(report_text, prom_bytes=None, prom_sha256=None):
     ss1 = reg(REG_SS1)
     if ss0 == 0x88888888:
         raise ProfileError("SS0 already reads as unlocked; probe from a cold boot")
+    if ss1 > 0xF or ss1 == 0x8:
+        raise ProfileError("SS1 %#x is not a cold 4-bit selector value" % ss1)
     if ss1 not in (2, 3):
-        raise ProfileError("SS1 %#x is outside the verified values (2 or 3)" % ss1)
+        warnings.append("cold SS1 %#x differs from the 10GB card (2 or 3); 0x7 was also seen cold on the GA107 port. "
+                        "Default build preserves SS1; -Ss1Full is untested on this card" % ss1)
     if ss0 != 0x46254040:
         warnings.append("cold SS0 %#x differs from the 10GB card (0x46254040); expected for a different SKU, but untested" % ss0)
     fb_mb = reg(REG_FB_MB)
@@ -184,6 +187,7 @@ def build_profile(report_text, prom_bytes=None, prom_sha256=None):
         ("GU_BOARD_CHIP", chip),
         ("GU_BOARD_COLD_FEAT_PLM", plm),
         ("GU_BOARD_COLD_SS0", ss0),
+        ("GU_BOARD_COLD_SS1", ss1),
         ("GU_BOARD_FB_MB", fb_mb),
     ]
     lines = ["#pragma once",

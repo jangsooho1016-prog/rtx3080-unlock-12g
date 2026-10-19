@@ -38,12 +38,23 @@
     !defined(GU_BOARD_CLASS_REV) || !defined(GU_BOARD_CFG_C8) ||          \
     !defined(GU_BOARD_BAR0) || !defined(GU_BOARD_BAR0_LEN) ||            \
     !defined(GU_BOARD_COLD_FEAT_PLM) || !defined(GU_BOARD_COLD_SS0) ||   \
-    !defined(GU_BOARD_FB_MB) || !defined(GU_BOARD_PROM_SHA256)
+    !defined(GU_BOARD_FB_MB) || !defined(GU_BOARD_PROM_SHA256) ||       \
+    !defined(GU_BOARD_COLD_SS1)
 #error "board_measured.h is incomplete; regenerate it with tools/make_board_profile.py."
 #endif
 
 #if (GU_BOARD_SUBSYSTEM & 0xffffU) != GU_BOARD_SUBSYSTEM_VENDOR
 #error "Measured subsystem vendor is not MSI (1462)."
+#endif
+#ifndef GU_BOARD_COLD_SS1_ALT
+#define GU_BOARD_COLD_SS1_ALT GU_BOARD_COLD_SS1
+#endif
+#if GU_BOARD_COLD_SS1 > 0xfU || GU_BOARD_COLD_SS1 == 0x8U
+#error "Measured cold SS1 must be a 4-bit value other than 8."
+#endif
+/* Default: SS0 only, SS1 preserved. Build with -Ss1Full to write SS1=8. */
+#ifndef GU_SS1_FULL
+#define GU_SS1_FULL 0
 #endif
 #endif /* GU_BOARD_MEASURED */
 #endif /* GU_BOARD_TEST_FIXTURE */

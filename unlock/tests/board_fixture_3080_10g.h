@@ -18,4 +18,8 @@
 #define GU_BOARD_COLD_FEAT_PLM 0xffffff8fU
 #define GU_BOARD_COLD_SS0 0x46254040U
 #define GU_BOARD_FB_MB 0x00002800U
+/* The 10GB evidence showed SS1=2 or 3 when cold; upstream SS1=8 policy. */
+#define GU_BOARD_COLD_SS1 0x3U
+#define GU_BOARD_COLD_SS1_ALT 0x2U
+#define GU_SS1_FULL 1
 #define GU_BOARD_PROM_SHA256 "f3dc8f07b0b8c9856d192df172dfa7f7f84ac17ef6edfdb448ad7fa94efd2789"

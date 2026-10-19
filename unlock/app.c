@@ -231,7 +231,7 @@ static EFI_STATUS ColdCheck(VOID) {
   GuLog("cold state: chip=%#x plm=%#x gfw=%#x/%#x/%#x WPR2_HI=%#x SS0=%#x SS1=%#x\n",
     GU_BOARD_CHIP,plm,s.plm,s.boot,s.cpuctl,hi,ss0,ss1);
   if(Gu.fault || gpu_unlock_gfw_assess(&s) || hi>>4 || plm!=GU_BOARD_COLD_FEAT_PLM ||
-    ss0!=GU_BOARD_COLD_SS0 || (ss1!=2 && ss1!=3) || GuRead32(0x1183a4)!=GU_BOARD_FB_MB)return EFI_NOT_READY;
+    ss0!=GU_BOARD_COLD_SS0 || (ss1!=GU_BOARD_COLD_SS1 && ss1!=GU_BOARD_COLD_SS1_ALT) || GuRead32(0x1183a4)!=GU_BOARD_FB_MB)return EFI_NOT_READY;
   return Gu.fault?EFI_DEVICE_ERROR:EFI_SUCCESS;
 }
 static EFI_STATUS PromCheck(VOID) {
@@ -244,6 +244,7 @@ static EFI_STATUS Arm(VOID) {
   if(!Table->ConIn || !Table->ConIn->Reset || !Table->ConIn->ReadKeyStroke)return EFI_UNSUPPORTED;
   EFI_STATUS status=Table->ConIn->Reset(Table->ConIn,FALSE);if(EFI_ERROR(status))return status;
   GuLogText("READY: " GU_BOARD_NAME " / Intel display / verified USB log and firmware.\n");
+  GuLogText(GU_SS1_FULL?"Policy: SS0=0x88888888 and SS1=0x8 (SS1 experiment).\n":"Policy: SS0=0x88888888, SS1 preserved.\n");
   if(PendingOwner.agent)GuLogText("U will release the RTX firmware driver, restore verified access settings if needed, then recheck and attempt once.\n");
   GuLogText("Press U to attempt once; Esc or 30-second timeout cancels.\n");
   if(!GuLogReady())return EFI_DEVICE_ERROR;
