@@ -1,0 +1,12 @@
+{
+  "label": "after8k-ss1",
+  "gpu": "NVIDIA GeForce RTX 3080",
+  "torch": "2.9.0+cu128",
+  "n": 8192,
+  "results": {
+    "FP32": 24.043415823375458,
+    "TF32 Tensor": 60.36510095560655,
+    "FP16 Tensor / FP32 acc": 120.53282512804226,
+    "BF16 Tensor / FP32 acc": 123.57654826027347
+  }
+}

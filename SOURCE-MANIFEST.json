@@ -31,7 +31,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "559725d5dfa1dc02df9dc7943786c1bb45b0626d8cb06b3456e6e04ca608682c"
+      "sha256": "a3c177ca10a394849caa87e49ed7641d40dd0294380992064fe871abd9572336"
     },
     {
       "path": "TESTING.md",
@@ -2619,7 +2619,7 @@
     },
     {
       "path": "docs/PORT-3080-12G.md",
-      "sha256": "465cbd0bae506e52387b018ba9df8cee195aadd5390374ff874c3010b2c65f82"
+      "sha256": "8ab1cc911371828a29b107bb0d32d7dcce44741bbba2d7afc9f94ff75f724840"
     },
     {
       "path": "docs/USB-BOOT.md",
@@ -2636,6 +2636,14 @@
     {
       "path": "evidence/12g-unlock-run00/REPORT.TXT",
       "sha256": "286a6e135b086479b08d2674809bbeef4a116de743e71366124cd1a9646b3328"
+    },
+    {
+      "path": "evidence/12g-unlock-ss1-run00/REPORT.TXT",
+      "sha256": "db52a52cbff8d7b96b3cb4cada457fc6cd17e1fc38c427bb920f8d48ea51f5d4"
+    },
+    {
+      "path": "evidence/12g-unlock-ss1-run01-recheck/REPORT.TXT",
+      "sha256": "1e1b83be3e350fa7748f19d6d86bb18c1f9ecb6d77d583b0fec7d0389c22fc47"
     },
     {
       "path": "probe_app.c",
@@ -2656,6 +2664,10 @@
     {
       "path": "results/12g/after-4096-pl70.json",
       "sha256": "01713110c0ec342ecac7937bc714b8af31b72968cd340bb010b93a239d24cf7c"
+    },
+    {
+      "path": "results/12g/after-8192-pl100-ss1.json",
+      "sha256": "3c9f20e05c2a05fef0163e7c1636c2b22fe977f6a4aa92dc4761231b60690e44"
     },
     {
       "path": "results/12g/after-8192-pl100.json",
