@@ -9,7 +9,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\test-all.ps1
 ```
 
-기본 검사는 probe, port/Bus Master, preflight, runtime, PE 거부 검사와 USB 패키지 도구를 실행합니다. `upstream-10gb/evidence/boot-03/REPORT.TXT`를 preflight fixture로 사용합니다. GPU와 UEFI 서비스는 모의 환경입니다.
+기본 검사는 probe, port/Bus Master, preflight, runtime, Windows Boot Manager 체인로드(`unlock/test-chainload.cmd`), PE 거부 검사와 USB 패키지 도구를 실행합니다. `upstream-10gb/evidence/boot-03/REPORT.TXT`를 preflight fixture로 사용합니다. GPU와 UEFI 서비스는 모의 환경입니다.
 
 Python 패키지 검사만 실행하려면 다음 명령을 사용합니다.
 
@@ -28,7 +28,7 @@ python -m unittest discover -s tools -p "test_*.py" -v
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unlock\test-all.ps1 -WithLocalFixtures
 ```
 
-transaction, SHA256, EFI transaction, 전체 앱과 FWSEC 순서 비교 검사가 추가됩니다. PROM fixture는 기록된 보드의 회귀 검사 입력입니다. 다른 카드의 캡처로 바꿔 같은 검증이라고 해석하지 않습니다.
+transaction, SHA256, EFI transaction, 전체 앱과 FWSEC 순서 비교 검사가 추가됩니다. 전체 앱 검사는 모든 시나리오에서 체인로드 순서도 확인합니다: 미리 로드는 `READY` 전·GPU 쓰기 전에 한 번, `StartImage`는 성공 시나리오에서만 로그·파일·GPU 프로토콜·자산을 닫은 뒤 한 번, 그 밖의 반환 경로는 `UnloadImage`. PROM fixture는 기록된 보드의 회귀 검사 입력입니다. 다른 카드의 캡처로 바꿔 같은 검증이라고 해석하지 않습니다.
 
 ## 소스와 패키지 해시
 

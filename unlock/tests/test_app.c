@@ -71,7 +71,10 @@ static BOOLEAN bound,late_pci_change;
 static UINTN disconnect_calls;
 static UINTN attribute_enables;
 static UINT64 enabled_attributes;
-static EFI_SIMPLE_FILE_SYSTEM_PROTOCOL fs;
+static EFI_SIMPLE_FILE_SYSTEM_PROTOCOL fs,nvme_fs;
+/* Chainload: H(12) is the internal Windows volume, H(13) the preloaded boot manager. */
+static EFI_LOADED_IMAGE_PROTOCOL boot_image;
+static UINTN load_calls,start_calls,unload_calls,chain_watchdog;
 static EFI_GRAPHICS_OUTPUT_PROTOCOL gops[2];
 static EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE modes[2];
 static EFI_GRAPHICS_OUTPUT_MODE_INFORMATION infos[2];
@@ -81,9 +84,10 @@ static EFI_GUID pg=EFI_PCI_IO_PROTOCOL_GUID,lg=EFI_LOADED_IMAGE_PROTOCOL_GUID,
 static const UINT8 intel_path[]={2,1,12,0,0xd0,0x41,3,0xa,0,0,0,0,1,1,6,0,0,2,2,3,8,0,0x11,0x43,1,0x80,0x7f,0xff,4,0};
 static const UINT8 rtx_path[]={2,1,12,0,0xd0,0x41,3,0xa,0,0,0,0,1,1,6,0,0,1,1,1,6,0,0,0,0x7f,0xff,4,0};
 static UINT8 usb_path[]={3,5,6,0,1,0,0x7f,0xff,4,0};
+static const UINT8 nvme_path[]={2,1,12,0,0xd0,0x41,3,0xa,0,0,0,0,1,1,6,0,0,0x1d,3,0x17,16,0,1,0,0,0,1,2,3,4,5,6,7,8,0x7f,0xff,4,0};
 #define H(n) ((EFI_HANDLE)(UINTN)(n))
 typedef struct {EFI_FILE_PROTOCOL protocol;int kind;UINTN position;BOOLEAN open;} FILE_FAKE;
-static FILE_FAKE files[9]; /* root, parent, run, report, five assets */
+static FILE_FAKE files[11]; /* root, parent, run, report, five assets, Windows root, bootmgfw.efi */
 static GU_ASSET originals[5];
 static UINT32 captured_config[64];
 static UINTN exclusive_calls,close_protocol_calls,key_calls,watchdog_calls,report_bytes,file_closes;
@@ -116,7 +120,10 @@ static EFI_STATUS EFIAPI app_stall(UINTN n) {
   if(halted)longjmp(escape_halt,1);return stall(n);
 }
 static EFI_STATUS EFIAPI watchdog(UINTN timeout,UINT64 code,UINTN bytes,CHAR16 *data) {
-  CHECK(!timeout && !code && !bytes && !data);watchdog_calls++;
+  CHECK(!code && !bytes && !data);
+  if(timeout){CHECK(timeout==300 && !start_calls);chain_watchdog=timeout;return EFI_SUCCESS;}
+  if(start_calls)return EFI_SUCCESS; /* clear after a returning boot manager */
+  watchdog_calls++;
   return app_mode==APP_WATCHDOG?EFI_DEVICE_ERROR:EFI_SUCCESS;
 }
 static EFI_STATUS EFIAPI get_variable(CHAR16 *name,EFI_GUID *g,UINT32 *attributes,UINTN *n,VOID *data) {
@@ -125,7 +132,11 @@ static EFI_STATUS EFIAPI get_variable(CHAR16 *name,EFI_GUID *g,UINT32 *attribute
 }
 static EFI_STATUS EFIAPI locate(EFI_LOCATE_SEARCH_TYPE search,EFI_GUID *g,VOID *key,UINTN *n,EFI_HANDLE **h) {
   CHECK(search==ByProtocol && !key);*n=guid(g,&pg)?(app_mode==APP_DUPLICATE?2:1):2;
-  CHECK(guid(g,&pg) || guid(g,&gg));CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,*n*sizeof(**h),(VOID **)h)));
+  CHECK(guid(g,&pg) || guid(g,&gg) || guid(g,&fg));
+  if(guid(g,&fg)) {
+    CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,2*sizeof(**h),(VOID **)h)));
+    (*h)[0]=H(2);(*h)[1]=H(12);return EFI_SUCCESS;
+  }CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,*n*sizeof(**h),(VOID **)h)));
   for(UINTN i=0;i<*n;i++)(*h)[i]=guid(g,&pg)?H(3+i):
     app_mode==APP_QUERY_FORWARD_REVERSED?H(6-i):H(5+i);
   return EFI_SUCCESS;
@@ -134,6 +145,8 @@ static EFI_STATUS EFIAPI handle(EFI_HANDLE h,EFI_GUID *g,VOID **p) {
   *p=NULL;
   if(h==H(1) && guid(g,&lg))*p=&loaded;
   else if(h==H(2) && guid(g,&fg))*p=&fs;
+  else if(h==H(12) && guid(g,&fg))*p=&nvme_fs;
+  else if(h==H(13) && guid(g,&lg))*p=&boot_image;
   else if((h==H(3) || h==H(4)) && guid(g,&pg)) {
     if((disconnect_calls && app_mode==APP_HANDOFF_MISSING_PCI) || (late_pci_change && app_mode==APP_HANDOFF_LATE_MISSING))return EFI_NOT_FOUND;
     *p=(disconnect_calls && app_mode==APP_HANDOFF_REPLACED_PCI) || (late_pci_change && app_mode==APP_HANDOFF_LATE_REPLACED)?&replacement_pci:&pci;
@@ -143,6 +156,7 @@ static EFI_STATUS EFIAPI handle(EFI_HANDLE h,EFI_GUID *g,VOID **p) {
   else if((h==H(5) || h==H(6)) && guid(g,&gg))*p=&gops[(UINTN)h-5];
   else if(guid(g,&dg)) {
     if(h==H(2) && app_mode!=APP_NO_USB)*p=usb_path;
+    else if(h==H(12))*p=(VOID *)nvme_path;
     else if(h==H(5))*p=(VOID *)(app_mode==APP_RTX_GOP || (disconnect_calls && app_mode==APP_HANDOFF_DISPLAY)?rtx_path:intel_path);
     else if(h==H(10))*p=(VOID *)(app_mode==APP_HANDOFF_BAD_CHILD || app_mode==APP_HANDOFF_OTHER_CHILD?intel_path:rtx_path);
     else return EFI_UNSUPPORTED;
@@ -320,6 +334,8 @@ static EFI_STATUS EFIAPI file_open(EFI_FILE_PROTOCOL *f,EFI_FILE_PROTOCOL **out,
   } else if(v->kind==2 && !strcmp(path,"REPORT.TXT")) {
     if(!(mode&EFI_FILE_MODE_CREATE))return EFI_NOT_FOUND;
     CHECK(run_created && !report_bytes);target=3;
+  } else if(v->kind==9 && !strcmp(path,"\\EFI\\Microsoft\\Boot\\bootmgfw.efi")) {
+    CHECK(mode==EFI_FILE_MODE_READ && !attributes && !Gu.armed);target=10;
   } else if(v->kind==1) {
     for(int i=0;i<5;i++) {
       const char *base=strrchr(originals[i].name,'/')+1;
@@ -332,11 +348,12 @@ static EFI_STATUS EFIAPI file_info(EFI_FILE_PROTOCOL *f,EFI_GUID *g,UINTN *size,
   FILE_FAKE *v=(FILE_FAKE *)f;CHECK(guid(g,&ig) && v->open && *size>=sizeof(EFI_FILE_INFO));
   memset(data,0,sizeof(EFI_FILE_INFO));EFI_FILE_INFO *info=data;info->Size=sizeof(*info);
   if(v->kind<3)info->Attribute=EFI_FILE_DIRECTORY;
-  if(v->kind>=4)info->FileSize=originals[v->kind-4].firmware.size+(app_mode==APP_BAD_SIZE?1:0);
+  if(v->kind>=4 && v->kind<9)info->FileSize=originals[v->kind-4].firmware.size+(app_mode==APP_BAD_SIZE?1:0);
+  if(v->kind==10)info->FileSize=0x250000;
   *size=sizeof(*info);return EFI_SUCCESS;
 }
 static EFI_STATUS EFIAPI file_read(EFI_FILE_PROTOCOL *f,UINTN *n,VOID *data) {
-  FILE_FAKE *v=(FILE_FAKE *)f;CHECK(v->open && v->kind>=4);
+  FILE_FAKE *v=(FILE_FAKE *)f;CHECK(v->open && v->kind>=4 && v->kind<9);
   const struct firmware *asset=&originals[v->kind-4].firmware;UINTN remain=asset->size-v->position;
   if(*n>remain)*n=remain;memcpy(data,asset->data+v->position,*n);
   if(app_mode==APP_BAD_HASH && !v->position && *n)((UINT8 *)data)[0]^=1;
@@ -364,13 +381,37 @@ static EFI_STATUS EFIAPI file_flush(EFI_FILE_PROTOCOL *f) {
 static EFI_STATUS EFIAPI volume(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *p,EFI_FILE_PROTOCOL **root) {
   CHECK(p==&fs);files[0].open=TRUE;*root=&files[0].protocol;return EFI_SUCCESS;
 }
+static EFI_STATUS EFIAPI nvme_volume(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *p,EFI_FILE_PROTOCOL **root) {
+  CHECK(p==&nvme_fs && !files[9].open);files[9].open=TRUE;*root=&files[9].protocol;return EFI_SUCCESS;
+}
+static EFI_STATUS EFIAPI load_image(BOOLEAN policy,EFI_HANDLE parent,EFI_DEVICE_PATH_PROTOCOL *path,VOID *source,UINTN size,EFI_HANDLE *image) {
+  /* Preload happens before READY, before any GPU write, and only once. */
+  CHECK(!policy && parent==H(1) && path && !source && !size && image && !prompt && !Gu.armed && !Gu.started);
+  CHECK(!fake.mmio_writes && !fake.flrs && !load_calls && !files[9].open && !files[10].open);
+  CHECK(!memcmp(path,nvme_path,sizeof(nvme_path)-4));
+  load_calls++;*image=H(13);
+  memset(&boot_image,0,sizeof(boot_image));boot_image.ParentHandle=parent;boot_image.DeviceHandle=H(12);
+  boot_image.ImageCodeType=EfiLoaderCode;return EFI_SUCCESS;
+}
+static EFI_STATUS EFIAPI start_image(EFI_HANDLE image,UINTN *n,CHAR16 **data) {
+  /* Hand-off only after the transaction, log, files, protocol and assets are closed. */
+  CHECK(image==H(13) && n && data && load_calls==1 && !start_calls && !unload_calls && chain_watchdog==300);
+  CHECK(!halted && !exclusive && !Gu.owned && GuSafeToReturn() && !Gu.allocations && Gu.started && Gu.quiesced);
+  CHECK(current_tpl==TPL_APPLICATION && !fake.pool_live && !GuAssets[0].firmware.data && close_protocol_calls==1);
+  CHECK(strstr(report_text,"chainload preload: status=0") && strstr(report_text,"chainload=1"));
+  for(int i=0;i<11;i++)CHECK(!files[i].open);
+  start_calls++;return EFI_SUCCESS;
+}
+static EFI_STATUS EFIAPI unload_image(EFI_HANDLE image) {
+  CHECK(image==H(13) && load_calls==1 && !start_calls && !unload_calls);unload_calls++;return EFI_SUCCESS;
+}
 static void app_setup(enum app_case mode) {
   setup(mode==APP_BME || mode==APP_HANDOFF_BME?BME_READBACK_FAIL:mode==APP_DIRTY?FWSEC_TIMEOUT:mode==APP_UNMAP?UNMAP_FAIL:mode==APP_SELECTOR?SELECTOR_LOST:
     mode==APP_FWSEC_NO_WPR?PIO_UNAVAILABLE_NO_WPR:mode==APP_FWSEC_PIO_UNAVAILABLE?PIO_UNAVAILABLE:SUCCESS);
   app_mode=mode;memcpy(config,captured_config,sizeof(config));
   memset(&st,0,sizeof(st));memset(&rt,0,sizeof(rt));memset(files,0,sizeof(files));memset(&loaded,0,sizeof(loaded));
   exclusive_calls=close_protocol_calls=key_calls=watchdog_calls=report_bytes=file_closes=0;
-  query_calls=0;query_allocation=NULL;
+  query_calls=0;query_allocation=NULL;load_calls=start_calls=unload_calls=chain_watchdog=0;
   disconnect_calls=0;bound=mode>=APP_HANDOFF && mode!=APP_MASTER_ENABLE_ERROR_CLEAR_BAD;
   late_pci_change=FALSE;attribute_enables=0;enabled_attributes=0;
   memset(&owner_binding,0,sizeof(owner_binding));memset(&owner_image,0,sizeof(owner_image));
@@ -390,8 +431,9 @@ static void app_setup(enum app_case mode) {
   bs.RaiseTPL=raise_tpl;bs.RestoreTPL=restore_tpl;pci.GetLocation=location;pci.GetBarAttributes=bar_info;
   pci.Pci.Read=app_read_config;pci.Attributes=mode==APP_DECODE_NO_API?NULL:attributes;
   replacement_pci=pci;replacement_pci.Pci.Read=replacement_read;replacement_pci.Pci.Write=replacement_write;
-  loaded.DeviceHandle=H(2);fs.OpenVolume=volume;
-  for(int i=0;i<9;i++) {
+  loaded.DeviceHandle=H(2);fs.OpenVolume=volume;nvme_fs.OpenVolume=nvme_volume;
+  bs.LoadImage=load_image;bs.StartImage=start_image;bs.UnloadImage=unload_image;
+  for(int i=0;i<11;i++) {
     files[i].kind=i;files[i].protocol.Open=file_open;files[i].protocol.Close=file_close;
     files[i].protocol.GetInfo=file_info;files[i].protocol.Read=file_read;
     files[i].protocol.Write=file_write;files[i].protocol.Flush=file_flush;
@@ -451,6 +493,7 @@ int main(int argc,char **argv) {
        mode==APP_HANDOFF_CONFIG || mode==APP_DECODE_BOTH || mode==APP_DECODE_IO || mode==APP_FWSEC_PIO_UNAVAILABLE) {
       CHECK(result==EFI_SUCCESS && !halted && Gu.started && Gu.quiesced && !Gu.allocations);
       CHECK(fake.flrs==1 && exclusive_calls==1 && close_protocol_calls==1 && report_bytes && watchdog_calls==1);
+      CHECK(load_calls==1 && start_calls==1 && !unload_calls);
       if(mode==APP_ZERO_INFO)CHECK(query_calls>=2 && strstr(report_text,"console QueryMode: status=0"));
       if(mode==APP_QUERY_FORWARD || mode==APP_QUERY_FORWARD_REVERSED)
         CHECK(query_calls==3 && strstr(report_text,"console forwarded Intel match=1"));
@@ -527,7 +570,9 @@ int main(int argc,char **argv) {
       }
       if(mode>=APP_HANDOFF)CHECK(!disconnect_calls && bound && !exclusive_calls);
     }
-    if(!halted){CHECK(!exclusive && !fake.pool_live);for(int i=0;i<9;i++)CHECK(!files[i].open);}
+    if(!halted){CHECK(!exclusive && !fake.pool_live);for(int i=0;i<11;i++)CHECK(!files[i].open);}
+    /* Any other result: never started; a preloaded image is unloaded unless the app halted. */
+    if(result!=EFI_SUCCESS || halted)CHECK(!start_calls && (halted || unload_calls==load_calls));
     CHECK(!fake.pio_reads && !fake.pio_writes && !fake.dmem_reads);
     CHECK(current_tpl==TPL_APPLICATION);printf("EFI app %s: %s PASS\n",app_names[mode],halted?"halted with retained resources":"returned cleanly");
     dispose_host_fixture();

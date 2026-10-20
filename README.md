@@ -1,6 +1,6 @@
 # RTX 3080 12G Unlock
 
-MSI RTX 3080 SUPRIM X 12G LHR(`10de:220a`)에서 실행한 Windows용 UEFI 연산 언락 실험입니다. USB로 UEFI 앱을 실행해 GPU의 SS0 선택 레지스터를 바꾼 뒤, 재부팅 없이 Windows로 이어서 부팅합니다.
+MSI RTX 3080 SUPRIM X 12G LHR(`10de:220a`)에서 실행한 Windows용 UEFI 연산 언락 실험입니다. USB로 UEFI 앱을 실행해 GPU의 SS0 선택 레지스터를 바꾼 뒤, 미리 로드해 둔 Windows Boot Manager로 재부팅 없이 Windows를 부팅합니다.
 
 [rough2515-hub/rtx3080-unlock-public](https://github.com/rough2515-hub/rtx3080-unlock-public)(MSI RTX 3080 10GB용)을 이 카드에 맞게 포팅했습니다. 원본 저장소의 측정·로그는 [upstream-10gb/](upstream-10gb/README.md)에 따로 보관했고, 이 문서의 내용은 모두 아래 PC에서 직접 확인한 것입니다.
 
@@ -63,9 +63,9 @@ PyTorch `torch.mm` 행렬곱, 7회 측정 중앙값입니다([analysis/gemm_benc
 1. **프로브**: `tools\build-probe.ps1`로 읽기 전용 프로브를 빌드해 USB로 부팅하고, 결과로 `tools\make_board_profile.py`를 실행해 `unlock\board_measured.h`를 만듭니다. 이 PC의 프로브 결과는 [evidence/12g-probe-run00/REPORT.TXT](evidence/12g-probe-run00/REPORT.TXT)입니다.
 2. **실행 자산 5개**: NVIDIA 610.43.03 소스와 `nvidia-utils` 패키지에서 생성합니다. 생성 방법은 [docs/PORT-3080-12G.md](docs/PORT-3080-12G.md#실행-자산-5개)에 있습니다. 결과는 `unlock/assets.json`의 크기·SHA256과 일치해야 합니다.
 3. **빌드·패키지**: `unlock\build.ps1` → `tools\package_usb.py --assets <자산 폴더> --output <새 폴더>`
-4. **실행**: [USB 준비 및 부팅 안내](docs/USB-BOOT.md)를 따릅니다. 완전 종료 → F8 → UEFI USB → `READY`에서 U 한 번 → `UEFI transaction completed and cleaned up` 후 재부팅 없이 Windows Boot Manager.
+4. **실행**: [USB 준비 및 부팅 안내](docs/USB-BOOT.md)를 따릅니다. 완전 종료 → F8 → UEFI USB → (앱이 Windows Boot Manager를 미리 로드) → `READY`에서 U 한 번 → `UEFI transaction completed and cleaned up` 후 미리 로드한 Windows Boot Manager가 자동 실행됩니다. 자동 실행 조건과 예외는 [Windows 자동 부팅](docs/USB-BOOT.md#windows-자동-부팅-체인로드)에 있습니다. 체인로드 경로는 아직 실제 부팅으로 확인하지 않았습니다.
 
-TF32까지 풀려면 `unlock\build.ps1 -Ss1Full`(SS1=`0x8`)로 빌드합니다.
+TF32까지 풀려면 `unlock\build.ps1 -Ss1Full`(SS1=`0x8`)로 빌드합니다. 이전처럼 펌웨어로 돌아가 직접 고르려면 `-NoChainload`를 추가합니다.
 
 ## 빌드와 검사
 

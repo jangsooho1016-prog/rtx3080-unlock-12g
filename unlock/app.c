@@ -6,6 +6,7 @@
 #include "ownership.h"
 #include "vendor/unlock_610.h"
 #include "vendor/gfw_eval.h"
+#include "chainload.h"
 #include <Protocol/GraphicsOutput.h>
 #include <IndustryStandard/Acpi.h>
 #include <Guid/GlobalVariable.h>
@@ -15,6 +16,10 @@ static EFI_SYSTEM_TABLE *Table;
 static UINT32 InitialConfig[64];
 static const char *Stage;
 static GU_RELEASE_OWNER PendingOwner;
+#ifndef GU_CHAINLOAD
+#define GU_CHAINLOAD 1
+#endif
+static GU_CHAIN Chain;
 static EFI_STATUS Step(EFI_STATUS Status) {
   GuLog("CHECK stage=%s status=%#llx\n",Stage,(unsigned long long)Status);
   return !GuLogReady() && !EFI_ERROR(Status)?EFI_DEVICE_ERROR:Status;
@@ -245,6 +250,8 @@ static EFI_STATUS Arm(VOID) {
   EFI_STATUS status=Table->ConIn->Reset(Table->ConIn,FALSE);if(EFI_ERROR(status))return status;
   GuLogText("READY: " GU_BOARD_NAME " / Intel display / verified USB log and firmware.\n");
   GuLogText(GU_SS1_FULL?"Policy: SS0=0x88888888 and SS1=0x8 (SS1 experiment).\n":"Policy: SS0=0x88888888, SS1 preserved.\n");
+  GuLogText(Chain.image?"After a clean result: preloaded Windows Boot Manager starts automatically (no reboot).\n":
+    "After a clean result: returns to firmware; choose Windows Boot Manager manually.\n");
   if(PendingOwner.agent)GuLogText("U will release the RTX firmware driver, restore verified access settings if needed, then recheck and attempt once.\n");
   GuLogText("Press U to attempt once; Esc or 30-second timeout cancels.\n");
   if(!GuLogReady())return EFI_DEVICE_ERROR;
@@ -257,6 +264,18 @@ static EFI_STATUS Arm(VOID) {
     GuStall(100000);
   }
   return EFI_TIMEOUT;
+}
+static EFI_STATUS Preload(VOID) {
+  if(!GU_CHAINLOAD){GuLogText("chainload: disabled by build\n");return GuLogReady()?EFI_SUCCESS:EFI_DEVICE_ERROR;}
+  /* Read-only disk access and LoadImage only: nothing here runs Windows code,
+     connects drivers or touches the GPU. Every later armed recheck still runs. */
+  EFI_STATUS status=GuChainPreload(Gu.bs,Gu.image,&Chain);
+  GuLog("chainload preload: status=%#llx scanned=%zu self=%zu usb=%zu bad_path=%zu candidates=%zu loaded=%u\n",
+    (unsigned long long)status,(size_t)Chain.scanned,(size_t)Chain.skipped_self,(size_t)Chain.skipped_usb,
+    (size_t)Chain.skipped_path,(size_t)Chain.candidates,(unsigned)(Chain.image!=NULL));
+  /* Not a gate: without a single unambiguous Windows Boot Manager the app keeps
+     the previous behaviour and returns to firmware after the transaction. */
+  return GuLogReady()?EFI_SUCCESS:EFI_DEVICE_ERROR;
 }
 static VOID Halt(VOID) {
   Gu.retained=TRUE;
@@ -285,7 +304,7 @@ static VOID ReleaseHalt(EFI_STATUS Status,BOOLEAN Attempted) {
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   if(!St || !St->BootServices || !St->RuntimeServices)return EFI_INVALID_PARAMETER;
   Table=St;GuInit(St->BootServices,NULL);Gu.image=Image;Gu.display_check=DisplayCheck;
-  memset(&PendingOwner,0,sizeof(PendingOwner));
+  memset(&PendingOwner,0,sizeof(PendingOwner));memset(&Chain,0,sizeof(Chain));
   Stage="usb-log";EFI_STATUS status=GuIoOpen(Image,St);BOOLEAN attempted=FALSE,release_attempted=FALSE;
   if(EFI_ERROR(status))goto finish;
   UINT8 secure=0xff;UINTN bytes=1;
@@ -307,6 +326,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   Stage="cold-state";status=Step(ColdCheck());if(EFI_ERROR(status))goto finish;
   Stage="prom";status=Step(PromCheck());if(EFI_ERROR(status))goto finish;
   Stage="assets";status=Step(GuLoadAssets());if(EFI_ERROR(status))goto finish;
+  Stage="chainload-preload";status=Step(Preload());if(EFI_ERROR(status))goto finish;
   Stage="arming";status=Step(Arm());if(EFI_ERROR(status))goto finish;
   Stage="armed-config";status=Step(ConfigCheck(FALSE));if(EFI_ERROR(status))goto finish;
   Stage="armed-display";Gu.display_ok=DisplayCheck();status=Step(Gu.display_ok?EFI_SUCCESS:EFI_UNSUPPORTED);if(EFI_ERROR(status))goto finish;
@@ -358,7 +378,14 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
 finish:
   if(release_attempted && (EFI_ERROR(status) || Gu.fault))ReleaseHalt(status,attempted);
   if(attempted && !GuSafeToReturn())Halt();
-  if(GuLogReady())GuLog("FINAL status=%#llx stage=%s attempted=%u driver_release=%u clean=%u\n",(unsigned long long)status,Stage,attempted,release_attempted,GuSafeToReturn());
+  /* Only a successful, clean transaction hands off; every other result unloads
+     the preloaded boot manager and returns to firmware exactly as before. */
+  BOOLEAN chain=!EFI_ERROR(status) && attempted && Chain.image && GuSafeToReturn();
+  if(Chain.image && !chain) {
+    EFI_STATUS discarded=GuChainDiscard(Gu.bs,&Chain);
+    if(GuLogReady())GuLog("chainload discarded: unload=%#llx\n",(unsigned long long)discarded);
+  }
+  if(GuLogReady())GuLog("FINAL status=%#llx stage=%s attempted=%u driver_release=%u clean=%u chainload=%u\n",(unsigned long long)status,Stage,attempted,release_attempted,GuSafeToReturn(),(unsigned)chain);
   else GuConsole("Preflight or logging failed; no new attempt will start.\n");
   if(!GuLogReady()){status=EFI_DEVICE_ERROR;if(release_attempted)ReleaseHalt(status,attempted);if(Gu.started)Halt();}
   if(attempted && !GuSafeToReturn())Halt();
@@ -369,6 +396,15 @@ finish:
     if(EFI_ERROR(closed)){if(release_attempted)ReleaseHalt(closed,attempted);if(Gu.started)Halt();status=closed;}else Gu.owned=FALSE;
   }
   GuReleaseAssets();
+  /* Log and target closed, GPU protocol released, assets freed. A close error
+     above turned status into an error, so it is also re-checked here. */
+  if(chain && !EFI_ERROR(status) && Chain.image && GuSafeToReturn() && !Gu.owned) {
+    GuConsole("UEFI transaction completed and cleaned up. Starting preloaded Windows Boot Manager.\n");
+    EFI_STATUS started=GuChainStart(Gu.bs,&Chain);
+    GuConsole("Windows Boot Manager returned without booting. Returning to firmware; choose Windows Boot Manager there.\n");
+    return EFI_ERROR(started)?started:EFI_SUCCESS;
+  }
+  GuChainDiscard(Gu.bs,&Chain);
   if(!EFI_ERROR(status))GuConsole("UEFI transaction completed and cleaned up. Returning to firmware; Windows validation is pending.\n");
   else GuConsole("Attempt cancelled or rejected. Returning without another attempt.\n");
   return status;

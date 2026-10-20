@@ -4,7 +4,7 @@ cd /d "%~dp0"
 if not exist build mkdir build
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul
 if errorlevel 1 exit /b 1
-set "APP_SRC=app.c app_io.c ownership.c format.c sha256.c checks.c"
+set "APP_SRC=app.c app_io.c chainload.c ownership.c format.c sha256.c checks.c"
 set "APP_DEF="
 if "%~1"=="red" set "APP_SRC="
 if "%~1"=="red" set "APP_DEF=-DGU_EMPTY_APP"

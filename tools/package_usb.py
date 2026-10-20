@@ -117,7 +117,7 @@ def prepare(root, assets, output):
                 archive.writestr(name, verified_source_bytes(name))
             archive.writestr('SOURCE-MANIFEST.json', source_manifest_bytes)
         package = {
-            'schema': 1, 'version': 'v0.10-public',
+            'schema': 1, 'version': 'v0.11-public',
             'efi_sha256': digest(boot / 'BOOTX64.EFI'),
             'assets_included': assets is not None,
             # File completeness does not establish hardware/USB compatibility.

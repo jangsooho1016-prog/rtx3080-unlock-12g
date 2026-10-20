@@ -11,6 +11,8 @@
 
 2026-10-19의 공개용 도구·문서 정리: 로컬 USB 패키지 생성, 공개용 테스트 실행기, 상대 경로 기반 빌드 메타데이터. GPU 실행 조건과 transaction 순서는 유지했습니다.
 
+2026-10-20의 로컬 변경(v0.11): Windows Boot Manager 체인로드(`unlock/chainload.c`). 트랜잭션 전에 `bootmgfw.efi`를 미리 로드하고, 깨끗한 성공 후에만 실행합니다. GPU 실행 조건과 transaction 순서는 유지했습니다.
+
 ## EDK2 헤더 — BSD-2-Clause-Patent
 
 - 원본: [TianoCore EDK2](https://github.com/tianocore/edk2/tree/c1415771ac592ad8509351c46cd3cda4f38d7d52)
