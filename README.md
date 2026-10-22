@@ -30,6 +30,11 @@ MSI RTX 3080 SUPRIM X 12G LHR(`10de:220a`)에서 실행한 Windows용 UEFI 연�
 - FLR 후에도 `SS0=88888888 SS1=00000008` 유지, `FINAL status=0 ... clean=1`
 - 같은 전원 주기에서 앱이 다시 실행됐을 때는 cold 상태가 아니라서(`plm=0xffffffff`, SS0/SS1 이미 변경) 아무것도 하지 않고 거부됨([로그](evidence/12g-unlock-ss1-run01-recheck/REPORT.TXT))
 
+**RTX 모니터 연결 상태 + SS1 빌드 (2026-10-23)** — [UEFI 실행 로그](evidence/12g-unlock-ss1-rtx-gop-run07/REPORT.TXT) 요약:
+
+- RTX 펌웨어 화면 출력 1개를 U 전까지 허용하고 드라이버 해제와 함께 제거, 해제 후 엄격한 화면 검사 통과
+- `SS0: 0x40132104 → 0x88888888`, `SS1: 0x7 → 0x8`, FLR 후 유지, `FINAL status=0 ... clean=1 chainload=1`
+
 ## 측정 결과
 
 PyTorch `torch.mm` 행렬곱, 7회 측정 중앙값입니다([analysis/gemm_bench.py](analysis/gemm_bench.py)). 전력 제한은 MSI Afterburner 설정입니다.
@@ -63,7 +68,7 @@ PyTorch `torch.mm` 행렬곱, 7회 측정 중앙값입니다([analysis/gemm_benc
 1. **프로브**: `tools\build-probe.ps1`로 읽기 전용 프로브를 빌드해 USB로 부팅하고, 결과로 `tools\make_board_profile.py`를 실행해 `unlock\board_measured.h`를 만듭니다. 이 PC의 프로브 결과는 [evidence/12g-probe-run00/REPORT.TXT](evidence/12g-probe-run00/REPORT.TXT)입니다.
 2. **실행 자산 5개**: NVIDIA 610.43.03 소스와 `nvidia-utils` 패키지에서 생성합니다. 생성 방법은 [docs/PORT-3080-12G.md](docs/PORT-3080-12G.md#실행-자산-5개)에 있습니다. 결과는 `unlock/assets.json`의 크기·SHA256과 일치해야 합니다.
 3. **빌드·패키지**: `unlock\build.ps1` → `tools\package_usb.py --assets <자산 폴더> --output <새 폴더>`
-4. **실행**: [USB 준비 및 부팅 안내](docs/USB-BOOT.md)를 따릅니다. 완전 종료 → F8 → UEFI USB → (앱이 Windows Boot Manager를 미리 로드) → `READY`에서 U 한 번 → `UEFI transaction completed and cleaned up` 후 미리 로드한 Windows Boot Manager가 자동 실행됩니다. 자동 실행 조건과 예외는 [Windows 자동 부팅](docs/USB-BOOT.md#windows-자동-부팅-체인로드)에 있습니다. 체인로드 경로는 아직 실제 부팅으로 확인하지 않았습니다.
+4. **실행**: [USB 준비 및 부팅 안내](docs/USB-BOOT.md)를 따릅니다. 완전 종료 → F8 → UEFI USB → (앱이 Windows Boot Manager를 미리 로드) → `READY`에서 U 한 번 → `UEFI transaction completed and cleaned up` 후 미리 로드한 Windows Boot Manager가 자동 실행됩니다. 자동 실행 조건과 예외는 [Windows 자동 부팅](docs/USB-BOOT.md#windows-자동-부팅-체인로드)에 있습니다. 실행 로그에서 체인로드 실행(`chainload=1`)까지 확인했습니다. RTX에 모니터를 연결한 채로도 실행할 수 있습니다([안내](docs/USB-BOOT.md#rtx에-모니터가-연결된-경우)).
 
 TF32까지 풀려면 `unlock\build.ps1 -Ss1Full`(SS1=`0x8`)로 빌드합니다. 이전처럼 펌웨어로 돌아가 직접 고르려면 `-NoChainload`를 추가합니다.
 

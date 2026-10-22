@@ -43,7 +43,9 @@ USB:/
 
 `RTX3080-UNLOCK` 폴더는 로그를 쓸 수 있어야 합니다. `BOOTX64.EFI`만 복사한 상태에서는 실행할 수 없습니다. 이 앱은 파일 내용과 보드 조건을 다시 검사합니다.
 
-## RTX에 모니터가 연결된 경우 (rtx-gop-release 브랜치, 실기 미검증)
+## RTX에 모니터가 연결된 경우
+
+> 2026-10-23 이 PC에서 RTX에 모니터를 연결한 채 SS1 빌드로 실행해 성공했습니다([RUN07 로그](../evidence/12g-unlock-ss1-rtx-gop-run07/REPORT.TXT)). RTX 출력 1개가 허용(`rtx_outputs=1`)·검증(`children=1`)된 뒤 드라이버 해제로 사라졌고, 이후 SS0/SS1 적용과 FLR 후 유지, `FINAL status=0 ... clean=1 chainload=1`까지 확인했습니다. 이 보드에서는 출력 자식 관계가 PciIo가 아니라 DevicePath의 `BY_CHILD_CONTROLLER` 기록으로만 나타났습니다. Windows 진입 후 RTX 모니터의 화면 복귀는 로그로 확인할 수 없으므로 처음 사용할 때 직접 확인하세요.
 
 부팅 때 RTX 3080에 모니터가 연결되어 있으면 RTX 펌웨어 드라이버가 화면 출력(GOP) 자식 핸들을 만듭니다. 이전 빌드는 이 출력이 보이면 `stage=display`에서 거부했습니다(케이블을 뽑아야 했음).
 
@@ -91,7 +93,7 @@ USB 앱이 다시 열리면 Esc로 빠져나오세요. 같은 부팅에서 U를 
 
 이전 동작(항상 펌웨어로 복귀)이 필요하면 `unlock\build.ps1 -NoChainload`로 빌드합니다. `-Ss1Full`과 함께 쓸 수 있습니다.
 
-**체인로드 경로는 아직 이 PC에서 실제로 부팅해 확인하지 않았습니다.** 위의 2026-10-19 확인은 펌웨어로 돌아가 Windows Boot Manager를 직접 선택한 경로입니다. 체인로드에서는 펌웨어가 중간에 부팅 메뉴를 다시 거치지 않으므로, 처음 사용할 때 Windows에서 장치 상태와 CUDA 동작을 다시 확인하세요.
+**체인로드 경로**는 2026-10-21·23 실행 로그에서 `chainload=1`(미리 로드한 Windows Boot Manager 실행)까지 확인했습니다([RUN07](../evidence/12g-unlock-ss1-rtx-gop-run07/REPORT.TXT)). 2026-10-19 확인은 펌웨어로 돌아가 Windows Boot Manager를 직접 선택한 경로입니다. 체인로드에서는 펌웨어가 중간에 부팅 메뉴를 다시 거치지 않으므로, 처음 사용할 때 Windows에서 장치 상태와 CUDA 동작을 다시 확인하세요.
 
 `STOP / POWER OFF`가 표시되면 전원 버튼으로 PC를 끕니다. 그 화면에서 Windows로 계속 진행하지 않습니다. 다시 시도하기 전에 `RTX3080-UNLOCK/RUNxx/REPORT.TXT`를 확인합니다.
 

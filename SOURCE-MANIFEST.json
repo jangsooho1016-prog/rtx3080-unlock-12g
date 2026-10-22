@@ -31,7 +31,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "db41cd80dab74b509625f03d968ed7a2b27725d8e326a8f1cf06aed92b5abb6d"
+      "sha256": "9dbe7ed1b1378fe3a580f5ce2e11b1274143be16ce15249ae71b64fc23a5a356"
     },
     {
       "path": "TESTING.md",
@@ -2623,7 +2623,7 @@
     },
     {
       "path": "docs/USB-BOOT.md",
-      "sha256": "42234929e22447385adcc9c660d176536677ceb9af10c75ff19fab6aa2c1023b"
+      "sha256": "d7a94eda862c58fc1e1c715b37750923e3399bf2aa4bbc854a754e52fccd2f5d"
     },
     {
       "path": "efi_runtime.c",
@@ -2636,6 +2636,10 @@
     {
       "path": "evidence/12g-unlock-run00/REPORT.TXT",
       "sha256": "286a6e135b086479b08d2674809bbeef4a116de743e71366124cd1a9646b3328"
+    },
+    {
+      "path": "evidence/12g-unlock-ss1-rtx-gop-run07/REPORT.TXT",
+      "sha256": "0589846f6e7e20ad5d4f75c823c61bb9ef000c4133e85826f043b55e99516181"
     },
     {
       "path": "evidence/12g-unlock-ss1-run00/REPORT.TXT",
@@ -2715,7 +2719,7 @@
     },
     {
       "path": "unlock/app.c",
-      "sha256": "6e88e0486b7821f17c06b044d851dec340f365d4a97bdc7b2ef5cc173fcf158d"
+      "sha256": "f8bfd0f56052e5326f0538bd17d23f47dfb8456926adddddfc5dc2a43e7ac518"
     },
     {
       "path": "unlock/app.h",
@@ -2755,11 +2759,11 @@
     },
     {
       "path": "unlock/checks.c",
-      "sha256": "584c580606b66f5517c66f9e71055a41a8b4b46c4a9f5c6b74015aa3d61be82c"
+      "sha256": "c4ea3aae85719b78c0bf198f6f11a8c0769ea9d078a65a0be4653e599e07d580"
     },
     {
       "path": "unlock/checks.h",
-      "sha256": "11608aad4c15e4f670a67789f1b8e3b1e6085f5011e6ae44af55e1ae28936b14"
+      "sha256": "effaab2c4e08508419fb1ec17cb2f096910530fbc4eb8ddfebc4c0786263caa7"
     },
     {
       "path": "unlock/compat.c",
@@ -2831,11 +2835,11 @@
     },
     {
       "path": "unlock/ownership.c",
-      "sha256": "d4d1ccc9befeadde70bc6ee9461894a8397be6d2f35287110f283bf836d2aeee"
+      "sha256": "f89d517c28d7cdcc2336152400f7d3cbff5447b1b632211939234d3c9b59d508"
     },
     {
       "path": "unlock/ownership.h",
-      "sha256": "ef38e7183b29cf29bac16dd7d60089367a1a68ee3d33aa9dd768558fcc8ff888"
+      "sha256": "11ef86b25d2c922e966bb7c56c8c0eb28a9c8d305443347ab71475c5410b083f"
     },
     {
       "path": "unlock/port.c",
@@ -2919,7 +2923,7 @@
     },
     {
       "path": "unlock/tests/test_app.c",
-      "sha256": "2be3a7cca725b4cb497de15931a30eed37f0090c3846b3f22d817f0bdfa8b1f4"
+      "sha256": "eda9d02fa57a8f8a0c8d91ea2c28fb85e7c9db62c38ef09f9983becdb7f1d678"
     },
     {
       "path": "unlock/tests/test_chainload.c",
@@ -2927,7 +2931,7 @@
     },
     {
       "path": "unlock/tests/test_checks.c",
-      "sha256": "93ff0e46af06063a09c3bc9a1c9874ffd48714154fb8ed0a00accbedd6d02884"
+      "sha256": "b089630b7bc1dcae9280fd54d6e6aadd8e2d3c3b1fa0d3526df3a0b64bab5767"
     },
     {
       "path": "unlock/tests/test_efi_transaction.c",
