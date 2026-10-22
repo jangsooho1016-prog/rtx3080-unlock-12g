@@ -59,8 +59,14 @@ static BOOLEAN ConsoleGopCheck(EFI_GRAPHICS_OUTPUT_PROTOCOL *Gop,UINTN Index,
   }
   return valid;
 }
-static BOOLEAN DisplayCheck(VOID) {
-  EFI_HANDLE *handles=NULL;UINTN count=0,intel=0;BOOLEAN valid=TRUE;
+/* AllowTarget is used only before the RTX firmware driver is released: a
+   non-console RTX GOP output (route 2) is then counted instead of refused, so
+   the release can destroy it. After release, and inside the transaction
+   (Gu.display_check), the strict form requires that no RTX GOP remains. */
+static UINTN TargetGops;
+static BOOLEAN DisplayScan(BOOLEAN AllowTarget,UINTN *Targets) {
+  EFI_HANDLE *handles=NULL;UINTN count=0,intel=0,targets=0;BOOLEAN valid=TRUE;
+  if(Targets)*Targets=0;
   EFI_GRAPHICS_OUTPUT_MODE_INFORMATION physical={0},forwarded={0};BOOLEAN forwarding=FALSE;
   EFI_STATUS status=Gu.bs->LocateHandleBuffer(ByProtocol,&GopGuid,NULL,&count,&handles);
   GuLog("GOP enumeration: status=%#llx handles=%zu\n",(unsigned long long)status,(size_t)count);
@@ -78,6 +84,12 @@ static BOOLEAN DisplayCheck(VOID) {
     GuLog("GOP[%u] path_status=%#llx route=%d framebuffer=%#llx bytes=%zu mode=%u max_mode=%u info_bytes=%zu console=%u\n",
       (unsigned)i,(unsigned long long)status,route,(unsigned long long)mode->FrameBufferBase,
       (size_t)mode->FrameBufferSize,mode->Mode,mode->MaxMode,(size_t)mode->SizeOfInfo,(unsigned)(handles[i]==Table->ConsoleOutHandle));
+    if(AllowTarget && route==2 && !EFI_ERROR(status) && path) {
+      if(handles[i]==Table->ConsoleOutHandle || handles[i]==Table->StandardErrorHandle) {
+        GuLog("GOP[%u] RTX output is the system console; refused\n",(unsigned)i);valid=FALSE;break;
+      }
+      GuLog("GOP[%u] RTX output tolerated until firmware driver release\n",(unsigned)i);targets++;continue;
+    }
     if((status==EFI_UNSUPPORTED || status==EFI_NOT_FOUND) && !path && !mode->FrameBufferBase &&
        !mode->FrameBufferSize) {
       EFI_GRAPHICS_OUTPUT_MODE_INFORMATION info;
@@ -109,9 +121,13 @@ static BOOLEAN DisplayCheck(VOID) {
       forwarded.PixelsPerScanLine==physical.PixelsPerScanLine;
     GuLog("GOP console forwarded Intel match=%u\n",match);valid=valid && match;
   }
-  GuFree(handles);GuLog("GOP result: valid=%u intel_physical=%zu\n",valid,(size_t)intel);
+  GuFree(handles);
+  if(AllowTarget)GuLog("GOP result: valid=%u intel_physical=%zu rtx_outputs=%zu\n",valid,(size_t)intel,(size_t)targets);
+  else GuLog("GOP result: valid=%u intel_physical=%zu\n",valid,(size_t)intel);
+  if(Targets)*Targets=targets;
   return valid && intel==1 && GuLogReady();
 }
+static BOOLEAN DisplayCheck(VOID){return DisplayScan(FALSE,NULL);}
 static EFI_STATUS ReadConfig(UINT32 *Config) {
   for(UINTN i=0;i<64;i++)if(EFI_ERROR(GuConfigRead(EfiPciIoWidthUint32,(UINT32)i*4,&Config[i]))) {
     GuLog("PCI config read failed: offset=%#x valid_bytes=%u; snapshot incomplete\n",(unsigned)(i*4),(unsigned)(i*4));
@@ -253,6 +269,7 @@ static EFI_STATUS Arm(VOID) {
   GuLogText(Chain.image?"After a clean result: preloaded Windows Boot Manager starts automatically (no reboot).\n":
     "After a clean result: returns to firmware; choose Windows Boot Manager manually.\n");
   if(PendingOwner.agent)GuLogText("U will release the RTX firmware driver, restore verified access settings if needed, then recheck and attempt once.\n");
+  if(PendingOwner.child_count)GuLog("The RTX firmware display output (%zu) is removed with the driver; its monitor stays dark until Windows loads.\n",(size_t)PendingOwner.child_count);
   GuLogText("Press U to attempt once; Esc or 30-second timeout cancels.\n");
   if(!GuLogReady())return EFI_DEVICE_ERROR;
   for(UINTN i=0;i<300;i++) {
@@ -304,7 +321,7 @@ static VOID ReleaseHalt(EFI_STATUS Status,BOOLEAN Attempted) {
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   if(!St || !St->BootServices || !St->RuntimeServices)return EFI_INVALID_PARAMETER;
   Table=St;GuInit(St->BootServices,NULL);Gu.image=Image;Gu.display_check=DisplayCheck;
-  memset(&PendingOwner,0,sizeof(PendingOwner));memset(&Chain,0,sizeof(Chain));
+  memset(&PendingOwner,0,sizeof(PendingOwner));memset(&Chain,0,sizeof(Chain));TargetGops=0;
   Stage="usb-log";EFI_STATUS status=GuIoOpen(Image,St);BOOLEAN attempted=FALSE,release_attempted=FALSE;
   if(EFI_ERROR(status))goto finish;
   UINT8 secure=0xff;UINTN bytes=1;
@@ -314,11 +331,17 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   status=Step(status);if(EFI_ERROR(status))goto finish;
   Stage="watchdog";status=Step(Gu.bs->SetWatchdogTimer(0,0,0,NULL));if(EFI_ERROR(status))goto finish;
   Stage="target";status=Step(FindTarget());if(EFI_ERROR(status))goto finish;
-  Stage="display";Gu.display_ok=DisplayCheck();status=Step(Gu.display_ok?EFI_SUCCESS:EFI_UNSUPPORTED);if(EFI_ERROR(status))goto finish;
+  Stage="display";Gu.display_ok=DisplayScan(TRUE,&TargetGops);status=Step(Gu.display_ok?EFI_SUCCESS:EFI_UNSUPPORTED);if(EFI_ERROR(status))goto finish;
   Stage="ownership";status=GuClaimController();
   if(status==EFI_ACCESS_DENIED) {
     status=GuFindReleaseOwner(St,&PendingOwner,TRUE);
     if(!EFI_ERROR(status))GuLogText("Exclusive ownership deferred until manual U and explicit driver release.\n");
+  }
+  /* Every RTX GOP seen must be exactly the release owner's proven children. */
+  if(!EFI_ERROR(status) && (TargetGops || PendingOwner.child_count) &&
+     (!PendingOwner.agent || PendingOwner.child_count!=TargetGops)) {
+    GuLog("RTX output without matching releasable owner: outputs=%zu children=%zu\n",(size_t)TargetGops,(size_t)PendingOwner.child_count);
+    status=EFI_ACCESS_DENIED;
   }
   status=Step(status);if(EFI_ERROR(status))goto finish;
   Stage="config-recheck";status=Step(ConfigCheck(FALSE));if(EFI_ERROR(status))goto finish;
@@ -329,7 +352,11 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   Stage="chainload-preload";status=Step(Preload());if(EFI_ERROR(status))goto finish;
   Stage="arming";status=Step(Arm());if(EFI_ERROR(status))goto finish;
   Stage="armed-config";status=Step(ConfigCheck(FALSE));if(EFI_ERROR(status))goto finish;
-  Stage="armed-display";Gu.display_ok=DisplayCheck();status=Step(Gu.display_ok?EFI_SUCCESS:EFI_UNSUPPORTED);if(EFI_ERROR(status))goto finish;
+  {
+    UINTN armed_targets=0;
+    Stage="armed-display";Gu.display_ok=DisplayScan(TRUE,&armed_targets) && armed_targets==TargetGops;
+    status=Step(Gu.display_ok?EFI_SUCCESS:EFI_UNSUPPORTED);if(EFI_ERROR(status))goto finish;
+  }
   Stage="armed-cold-state";status=Step(ColdCheck());if(EFI_ERROR(status))goto finish;
   if(PendingOwner.agent) {
     GU_RELEASE_OWNER current;

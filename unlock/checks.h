@@ -15,3 +15,23 @@ BOOLEAN GuCheckConfig(const UINT32 Config[64], UINTN Segment, UINTN Bus,
    MaxBytes is a read bound, not necessarily the exact allocation length.
    Returns 1 for the Intel route, 2 for the RTX route, and 0 otherwise. */
 int GuDisplayPath(const EFI_DEVICE_PATH_PROTOCOL *Path, UINTN MaxBytes);
+
+/* One OpenProtocolInformation entry on the target handle. */
+typedef struct {
+  UINT32 Attributes, OpenCount;
+  EFI_HANDLE Agent, Controller;
+  BOOLEAN PciIo;
+} GU_OPEN_RECORD;
+
+#define GU_MAX_TARGET_CHILDREN 4U
+
+/* Release policy for the firmware driver bound to Target. Accepts only passive
+   opens, exactly one PciIo BY_DRIVER open by one agent on Target, and
+   BY_CHILD_CONTROLLER opens by that same agent for distinct non-Target child
+   handles (deduplicated, at most GU_MAX_TARGET_CHILDREN). Anything else,
+   including a second driver or an exclusive open, is EFI_ACCESS_DENIED.
+   The caller must still prove every child is a target GOP output. */
+EFI_STATUS GuReleasePolicy(const GU_OPEN_RECORD *Records, UINTN Count,
+                           EFI_HANDLE Target, EFI_HANDLE *Agent,
+                           EFI_HANDLE Children[GU_MAX_TARGET_CHILDREN],
+                           UINTN *ChildCount);

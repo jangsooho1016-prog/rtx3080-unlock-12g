@@ -27,7 +27,9 @@ enum app_case { APP_SUCCESS, APP_ESCAPE, APP_TIMEOUT, APP_OLD_KEY, APP_OWNER,
  APP_CACHED_RGB, APP_FWSEC_NO_WPR, APP_FWSEC_PIO_UNAVAILABLE, APP_FWSEC_DIAG_LOG,
  APP_HANDOFF, APP_HANDOFF_ESCAPE, APP_HANDOFF_TIMEOUT, APP_HANDOFF_MULTI,
  APP_HANDOFF_BINDING, APP_HANDOFF_IMAGE, APP_HANDOFF_CHILD, APP_HANDOFF_BAD_CHILD,
- APP_HANDOFF_OTHER_CHILD, APP_HANDOFF_CHANGED, APP_HANDOFF_FAIL, APP_HANDOFF_NOOP,
+ APP_HANDOFF_OTHER_CHILD, APP_HANDOFF_CHANGED,
+ APP_HANDOFF_RTX_OUTPUT, APP_HANDOFF_RTX_CONSOLE, APP_HANDOFF_RTX_UNOWNED, APP_HANDOFF_RTX_LATE,
+ APP_HANDOFF_FAIL, APP_HANDOFF_NOOP,
  APP_HANDOFF_REBIND, APP_HANDOFF_CONFIG, APP_HANDOFF_DISPLAY, APP_HANDOFF_PROM,
  APP_HANDOFF_MISSING_PCI, APP_HANDOFF_REPLACED_PCI, APP_HANDOFF_BME,
  APP_HANDOFF_LOG, APP_HANDOFF_CLOSE, APP_HANDOFF_LATE_MISSING, APP_HANDOFF_LATE_REPLACED,
@@ -49,7 +51,8 @@ static const char *app_names[]={"success","escape","timeout","old-key","driver-o
  "pio-unavailable-no-wpr-retains","pio-unavailable-fwsec-success","fwsec-diagnostic-log-failure",
  "handoff-success","handoff-escape","handoff-timeout","handoff-multiple-owner",
  "handoff-bad-binding","handoff-bad-image","handoff-child-refused","handoff-intel-child",
- "handoff-other-protocol-child","handoff-owner-changed","handoff-stop-failure","handoff-stop-noop",
+ "handoff-other-protocol-child","handoff-owner-changed",
+ "handoff-rtx-output","handoff-rtx-output-console","handoff-rtx-output-unowned","handoff-rtx-output-late","handoff-stop-failure","handoff-stop-noop",
  "handoff-new-owner","handoff-memory-decode-restored","handoff-display-change","handoff-prom-change",
  "handoff-pci-missing","handoff-pci-replaced","handoff-bme-failure","handoff-log-failure","handoff-close-failure",
  "handoff-pci-lost-before-claim","handoff-pci-replaced-before-claim",
@@ -78,6 +81,14 @@ static UINTN load_calls,start_calls,unload_calls,chain_watchdog;
 static EFI_GRAPHICS_OUTPUT_PROTOCOL gops[2];
 static EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE modes[2];
 static EFI_GRAPHICS_OUTPUT_MODE_INFORMATION infos[2];
+/* H(10): the NVIDIA GOP driver's output child, present only while the driver is bound. */
+static EFI_GRAPHICS_OUTPUT_PROTOCOL rtx_gop;
+static EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE rtx_mode;
+static EFI_GRAPHICS_OUTPUT_MODE_INFORMATION rtx_info;
+static BOOLEAN rtx_output_case(void) {
+  return app_mode==APP_HANDOFF_RTX_OUTPUT || app_mode==APP_HANDOFF_RTX_CONSOLE ||
+    app_mode==APP_HANDOFF_RTX_UNOWNED || app_mode==APP_HANDOFF_RTX_LATE;
+}
 static EFI_GUID pg=EFI_PCI_IO_PROTOCOL_GUID,lg=EFI_LOADED_IMAGE_PROTOCOL_GUID,
   dg=EFI_DEVICE_PATH_PROTOCOL_GUID,fg=EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID,
   gg=EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID,ig=EFI_FILE_INFO_ID,bg=EFI_DRIVER_BINDING_PROTOCOL_GUID;
@@ -130,15 +141,19 @@ static EFI_STATUS EFIAPI get_variable(CHAR16 *name,EFI_GUID *g,UINT32 *attribute
   char text[64];narrow(text,sizeof(text),name);CHECK(!strcmp(text,"SecureBoot") && g && *n==1);
   if(attributes)*attributes=6;*(UINT8 *)data=app_mode==APP_SECUREBOOT;*n=1;return EFI_SUCCESS;
 }
+static BOOLEAN rtx_visible(void) {
+  return rtx_output_case() && bound && (app_mode!=APP_HANDOFF_RTX_LATE || key_sent);
+}
 static EFI_STATUS EFIAPI locate(EFI_LOCATE_SEARCH_TYPE search,EFI_GUID *g,VOID *key,UINTN *n,EFI_HANDLE **h) {
   CHECK(search==ByProtocol && !key);*n=guid(g,&pg)?(app_mode==APP_DUPLICATE?2:1):2;
+  if(guid(g,&gg) && rtx_visible())*n=3;
   CHECK(guid(g,&pg) || guid(g,&gg) || guid(g,&fg));
   if(guid(g,&fg)) {
     CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,2*sizeof(**h),(VOID **)h)));
     (*h)[0]=H(2);(*h)[1]=H(12);return EFI_SUCCESS;
   }CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,*n*sizeof(**h),(VOID **)h)));
   for(UINTN i=0;i<*n;i++)(*h)[i]=guid(g,&pg)?H(3+i):
-    app_mode==APP_QUERY_FORWARD_REVERSED?H(6-i):H(5+i);
+    app_mode==APP_QUERY_FORWARD_REVERSED?H(6-i):i==2?H(10):H(5+i);
   return EFI_SUCCESS;
 }
 static EFI_STATUS EFIAPI handle(EFI_HANDLE h,EFI_GUID *g,VOID **p) {
@@ -154,6 +169,7 @@ static EFI_STATUS EFIAPI handle(EFI_HANDLE h,EFI_GUID *g,VOID **p) {
   else if(h==H(8) && guid(g,&bg))*p=&owner_binding;
   else if(h==H(9) && guid(g,&lg))*p=&owner_image;
   else if((h==H(5) || h==H(6)) && guid(g,&gg))*p=&gops[(UINTN)h-5];
+  else if(h==H(10) && guid(g,&gg) && rtx_visible())*p=&rtx_gop;
   else if(guid(g,&dg)) {
     if(h==H(2) && app_mode!=APP_NO_USB)*p=usb_path;
     else if(h==H(12))*p=(VOID *)nvme_path;
@@ -191,7 +207,9 @@ static VOID EFIAPI restore_tpl(EFI_TPL t){CHECK(current_tpl==TPL_CALLBACK || cur
 static EFI_STATUS EFIAPI open_info(EFI_HANDLE h,EFI_GUID *g,EFI_OPEN_PROTOCOL_INFORMATION_ENTRY **e,UINTN *n) {
   CHECK(h==H(3) && (guid(g,&pg) || guid(g,&dg)) && current_tpl>=TPL_CALLBACK);
   *n=app_mode==APP_OWNER && guid(g,&pg)?1:0;*e=NULL;
-  if(bound && guid(g,&pg))*n=app_mode==APP_HANDOFF_MULTI || app_mode==APP_HANDOFF_CHILD || app_mode==APP_HANDOFF_BAD_CHILD?2:1;
+  if(bound && guid(g,&pg))*n=app_mode==APP_HANDOFF_MULTI || app_mode==APP_HANDOFF_CHILD || app_mode==APP_HANDOFF_BAD_CHILD ||
+    (rtx_visible() && app_mode!=APP_HANDOFF_RTX_UNOWNED)?2:1;
+  if(bound && guid(g,&dg) && rtx_visible() && app_mode!=APP_HANDOFF_RTX_UNOWNED)*n=1;
   if(bound && guid(g,&dg) && app_mode==APP_HANDOFF_OTHER_CHILD)*n=1;
   if(*n) {
     CHECK(!EFI_ERROR(allocate_pool(EfiLoaderData,*n*sizeof(**e),(VOID **)e)));
@@ -422,7 +440,7 @@ static void app_setup(enum app_case mode) {
   memset(report_text,0,sizeof(report_text));
   exclusive=halted=key_sent=key_reset=prompt=run_created=owner_raced=FALSE;current_tpl=TPL_APPLICATION;
   st.BootServices=&bs;st.RuntimeServices=&rt;st.ConOut=&conout;st.ConIn=&conin;
-  st.ConsoleOutHandle=mode==APP_QUERY_OTHER_CONSOLE?H(7):H(6);
+  st.ConsoleOutHandle=mode==APP_QUERY_OTHER_CONSOLE?H(7):mode==APP_HANDOFF_RTX_CONSOLE?H(10):H(6);
   rt.GetVariable=get_variable;conout.OutputString=app_output;conin.Reset=input_reset;conin.ReadKeyStroke=read_key;
   bs.Stall=app_stall;bs.SetWatchdogTimer=watchdog;bs.HandleProtocol=handle;bs.LocateHandleBuffer=locate;
   bs.FreePool=app_free_pool;
@@ -446,6 +464,11 @@ static void app_setup(enum app_case mode) {
     infos[i].PixelFormat=i?PixelBltOnly:PixelBlueGreenRedReserved8BitPerColor;
   }
   modes[0].FrameBufferBase=0x4000000000ULL;modes[0].FrameBufferSize=0x300000;
+  memset(&rtx_gop,0,sizeof(rtx_gop));memset(&rtx_mode,0,sizeof(rtx_mode));memset(&rtx_info,0,sizeof(rtx_info));
+  rtx_gop.Mode=&rtx_mode;rtx_mode.Mode=0;rtx_mode.MaxMode=12;rtx_mode.Info=&rtx_info;rtx_mode.SizeOfInfo=sizeof(rtx_info);
+  rtx_mode.FrameBufferBase=0x6000000000ULL;rtx_mode.FrameBufferSize=0x870000;
+  rtx_info.HorizontalResolution=1920;rtx_info.VerticalResolution=1080;rtx_info.PixelsPerScanLine=2048;
+  rtx_info.PixelFormat=PixelBlueGreenRedReserved8BitPerColor;
   if(mode>=APP_ZERO_INFO) {
     modes[1].SizeOfInfo=0;
     /* Unsized Info must never be dereferenced; use the QueryMode-owned copy. */
@@ -490,7 +513,8 @@ int main(int argc,char **argv) {
     if(!setjmp(escape_halt))result=efi_main(H(1),&st);
     if(mode==APP_SUCCESS || mode==APP_OWNER_RACE || mode==APP_EDK2_BAR || mode==APP_ZERO_INFO ||
        mode==APP_QUERY_FORWARD || mode==APP_QUERY_FORWARD_REVERSED || mode==APP_HANDOFF ||
-       mode==APP_HANDOFF_CONFIG || mode==APP_DECODE_BOTH || mode==APP_DECODE_IO || mode==APP_FWSEC_PIO_UNAVAILABLE) {
+       mode==APP_HANDOFF_CONFIG || mode==APP_DECODE_BOTH || mode==APP_DECODE_IO || mode==APP_FWSEC_PIO_UNAVAILABLE ||
+       mode==APP_HANDOFF_RTX_OUTPUT) {
       CHECK(result==EFI_SUCCESS && !halted && Gu.started && Gu.quiesced && !Gu.allocations);
       CHECK(fake.flrs==1 && exclusive_calls==1 && close_protocol_calls==1 && report_bytes && watchdog_calls==1);
       CHECK(load_calls==1 && start_calls==1 && !unload_calls);
@@ -498,6 +522,15 @@ int main(int argc,char **argv) {
       if(mode==APP_QUERY_FORWARD || mode==APP_QUERY_FORWARD_REVERSED)
         CHECK(query_calls==3 && strstr(report_text,"console forwarded Intel match=1"));
       if(mode>=APP_HANDOFF)CHECK(disconnect_calls==1 && !bound && strstr(report_text,"driver_release=1"));
+      if(mode==APP_HANDOFF_RTX_OUTPUT) {
+        /* Tolerated before release only; every post-release display check is strict. */
+        CHECK(strstr(report_text,"GOP[2] RTX output tolerated until firmware driver release"));
+        CHECK(strstr(report_text,"rtx_outputs=1") && strstr(report_text,"children=1"));
+        CHECK(strstr(report_text,"release child[0]: handle=0xa gop=0 path=0 route=2 console=0"));
+        CHECK(strstr(report_text,"monitor stays dark until Windows loads"));
+        const char *after=strstr(report_text,"CHECK stage=ownership-after-release status=0");
+        CHECK(after && !strstr(after,"tolerated") && strstr(after,"CHECK stage=display-after-release status=0"));
+      }
       if(mode==APP_HANDOFF_CONFIG || mode==APP_DECODE_BOTH || mode==APP_DECODE_IO) {
         UINT64 expected=mode==APP_DECODE_IO?EFI_PCI_IO_ATTRIBUTE_IO:
           mode==APP_DECODE_BOTH?(EFI_PCI_IO_ATTRIBUTE_IO|EFI_PCI_IO_ATTRIBUTE_MEMORY):EFI_PCI_IO_ATTRIBUTE_MEMORY;
@@ -569,6 +602,10 @@ int main(int argc,char **argv) {
           mode==APP_QUERY_RECHECK?2:1));
       }
       if(mode>=APP_HANDOFF)CHECK(!disconnect_calls && bound && !exclusive_calls);
+      if(mode==APP_HANDOFF_RTX_CONSOLE)CHECK(strstr(report_text,"RTX output is the system console") && strstr(report_text,"stage=display status=0x8"));
+      if(mode==APP_HANDOFF_RTX_UNOWNED)CHECK(strstr(report_text,"RTX output without matching releasable owner: outputs=1 children=0") &&
+        strstr(report_text,"stage=ownership status=0x8"));
+      if(mode==APP_HANDOFF_RTX_LATE)CHECK(prompt && strstr(report_text,"rtx_outputs=1") && strstr(report_text,"stage=armed-display status=0x8"));
     }
     if(!halted){CHECK(!exclusive && !fake.pool_live);for(int i=0;i<11;i++)CHECK(!files[i].open);}
     /* Any other result: never started; a preloaded image is unloaded unless the app halted. */

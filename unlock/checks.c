@@ -187,3 +187,57 @@ int GuDisplayPath(const EFI_DEVICE_PATH_PROTOCOL *Path, UINTN MaxBytes) {
     MaxBytes -= Length;
   }
 }
+
+static BOOLEAN PassiveOpen(UINT32 Attributes) {
+  return Attributes == EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL ||
+         Attributes == EFI_OPEN_PROTOCOL_GET_PROTOCOL ||
+         Attributes == EFI_OPEN_PROTOCOL_TEST_PROTOCOL;
+}
+
+EFI_STATUS GuReleasePolicy(const GU_OPEN_RECORD *Records, UINTN Count,
+                           EFI_HANDLE Target, EFI_HANDLE *Agent,
+                           EFI_HANDLE Children[GU_MAX_TARGET_CHILDREN],
+                           UINTN *ChildCount) {
+  EFI_HANDLE Owner = NULL;
+  UINTN Drivers = 0, Found = 0, I, J;
+
+  if (Agent) *Agent = NULL;
+  if (ChildCount) *ChildCount = 0;
+  if (Records == NULL || Count == 0 || Target == NULL || Agent == NULL ||
+      Children == NULL || ChildCount == NULL)
+    return EFI_INVALID_PARAMETER;
+  for (I = 0; I < GU_MAX_TARGET_CHILDREN; I++) Children[I] = NULL;
+
+  for (I = 0; I < Count; I++) {
+    const GU_OPEN_RECORD *R = &Records[I];
+    if (!R->PciIo || R->Attributes != EFI_OPEN_PROTOCOL_BY_DRIVER) continue;
+    if (R->Agent == NULL || R->Controller != Target || R->OpenCount != 1)
+      return EFI_ACCESS_DENIED;
+    Owner = R->Agent;
+    Drivers++;
+  }
+  if (Drivers != 1) return EFI_ACCESS_DENIED;
+
+  for (I = 0; I < Count; I++) {
+    const GU_OPEN_RECORD *R = &Records[I];
+    if (PassiveOpen(R->Attributes)) continue;
+    if (R->Agent != Owner || R->OpenCount != 1) return EFI_ACCESS_DENIED;
+    if (R->Attributes == EFI_OPEN_PROTOCOL_BY_DRIVER) {
+      /* The driver's own open of a target protocol (PciIo, DevicePath...). */
+      if (R->Controller != Target) return EFI_ACCESS_DENIED;
+      continue;
+    }
+    if (R->Attributes != EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER ||
+        R->Controller == NULL || R->Controller == Target || R->Controller == Owner)
+      return EFI_ACCESS_DENIED;
+    for (J = 0; J < Found && Children[J] != R->Controller; J++) {
+    }
+    if (J == Found) {
+      if (Found == GU_MAX_TARGET_CHILDREN) return EFI_ACCESS_DENIED;
+      Children[Found++] = R->Controller;
+    }
+  }
+  *Agent = Owner;
+  *ChildCount = Found;
+  return EFI_SUCCESS;
+}

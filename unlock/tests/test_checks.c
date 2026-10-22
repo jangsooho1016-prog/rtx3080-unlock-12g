@@ -341,6 +341,96 @@ static void TestPaths(void) {
   Check(Path(P, sizeof(P)) == 0, "zero-filled path rejected");
 }
 
+#define HANDLE(N) ((EFI_HANDLE)(UINTN)(N))
+static GU_OPEN_RECORD Rec(UINT32 Attributes, UINTN Agent, UINTN Controller, BOOLEAN PciIo) {
+  GU_OPEN_RECORD R;
+  R.Attributes = Attributes; R.OpenCount = 1; R.Agent = HANDLE(Agent);
+  R.Controller = HANDLE(Controller); R.PciIo = PciIo;
+  return R;
+}
+
+static void TestReleasePolicy(void) {
+  /* Target=3, NVIDIA GOP driver=8, its GOP output child=10. */
+  EFI_HANDLE Agent, Kids[GU_MAX_TARGET_CHILDREN];
+  UINTN N = 99;
+  GU_OPEN_RECORD R[12];
+
+  /* RUN04 shape: driver bound, no monitor, no children. */
+  R[0] = Rec(EFI_OPEN_PROTOCOL_GET_PROTOCOL, 20, 3, FALSE);
+  R[1] = Rec(EFI_OPEN_PROTOCOL_BY_DRIVER, 8, 3, TRUE);
+  R[2] = Rec(EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, 21, 0, TRUE);
+  Check(GuReleasePolicy(R, 3, HANDLE(3), &Agent, Kids, &N) == EFI_SUCCESS &&
+        Agent == HANDLE(8) && N == 0, "bound driver without outputs accepted");
+
+  /* Monitor attached: the driver created one GOP child (PciIo + DevicePath). */
+  R[3] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 10, TRUE);
+  R[4] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 10, FALSE);
+  Check(GuReleasePolicy(R, 5, HANDLE(3), &Agent, Kids, &N) == EFI_SUCCESS &&
+        Agent == HANDLE(8) && N == 1 && Kids[0] == HANDLE(10),
+        "single child output deduplicated across protocols");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 11, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_SUCCESS &&
+        N == 2 && Kids[0] == HANDLE(10) && Kids[1] == HANDLE(11), "two outputs accepted");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 9, 11, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED &&
+        Agent == NULL && N == 0, "child created by a different agent refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 3, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "target as its own child refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 0, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "null child refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_DRIVER, 9, 3, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "second PciIo driver refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_DRIVER, 9, 3, FALSE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "foreign driver on another target protocol refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_EXCLUSIVE, 8, 3, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "exclusive open refused");
+
+  R[5] = Rec(EFI_OPEN_PROTOCOL_BY_DRIVER | EFI_OPEN_PROTOCOL_EXCLUSIVE, 8, 3, TRUE);
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "by-driver exclusive refused");
+
+  R[5] = R[3]; R[5].OpenCount = 2;
+  Check(GuReleasePolicy(R, 6, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "child open count above one refused");
+
+  R[1].OpenCount = 2;
+  Check(GuReleasePolicy(R, 5, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "driver open count above one refused");
+  R[1].OpenCount = 1;
+
+  R[1].Controller = HANDLE(4);
+  Check(GuReleasePolicy(R, 5, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "driver open on another controller refused");
+  R[1].Controller = HANDLE(3);
+
+  Check(GuReleasePolicy(R, 1, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "no driver refused");
+
+  for (UINTN I = 0; I < GU_MAX_TARGET_CHILDREN + 1; I++)
+    R[2 + I] = Rec(EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER, 8, 30 + I, TRUE);
+  Check(GuReleasePolicy(R, 2 + GU_MAX_TARGET_CHILDREN, HANDLE(3), &Agent, Kids, &N) == EFI_SUCCESS &&
+        N == GU_MAX_TARGET_CHILDREN, "maximum child count accepted");
+  Check(GuReleasePolicy(R, 3 + GU_MAX_TARGET_CHILDREN, HANDLE(3), &Agent, Kids, &N) == EFI_ACCESS_DENIED,
+        "too many children refused");
+
+  Check(GuReleasePolicy(NULL, 1, HANDLE(3), &Agent, Kids, &N) == EFI_INVALID_PARAMETER &&
+        GuReleasePolicy(R, 0, HANDLE(3), &Agent, Kids, &N) == EFI_INVALID_PARAMETER &&
+        GuReleasePolicy(R, 2, NULL, &Agent, Kids, &N) == EFI_INVALID_PARAMETER,
+        "invalid arguments refused");
+}
+
 int main(int Argc, char **Argv) {
   UINT32 Captured[64];
   if (Argc != 2 || !LoadCapture(Argv[1], Captured)) return 2;
@@ -349,6 +439,7 @@ int main(int Argc, char **Argv) {
   TestPowerAndPcie();
   TestCapabilities();
   TestPaths();
+  TestReleasePolicy();
   if (Failures != 0) {
     fprintf(stderr, "%u/%u checks failed\n", Failures, Checks);
     return 1;

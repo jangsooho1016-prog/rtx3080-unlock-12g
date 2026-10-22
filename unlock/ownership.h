@@ -2,8 +2,12 @@
 #define GU_OWNERSHIP_H
 #include "port.h"
 #include <Protocol/DriverBinding.h>
+#include "checks.h"
 typedef struct {
   EFI_HANDLE agent,image;
+  /* Target GOP outputs created by the agent; DisconnectController destroys them. */
+  EFI_HANDLE children[GU_MAX_TARGET_CHILDREN];
+  UINTN child_count;
   VOID *base;
   UINT64 size;
   UINT32 version;
