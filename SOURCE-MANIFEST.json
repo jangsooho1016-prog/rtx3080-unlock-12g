@@ -2650,6 +2650,10 @@
       "sha256": "67f92bb6a93ede58bcdcb28a255223057460233a97dc8ab027d987a99dba7b37"
     },
     {
+      "path": "evidence/12g-cold-ss0-variation/RUN12-REPORT.TXT",
+      "sha256": "8931003097de1cacc89364a40ba0fcc9a900515006a512e900bd1f670d0c5235"
+    },
+    {
       "path": "evidence/12g-probe-run00/REPORT.TXT",
       "sha256": "edbe5f63650f74483f5e0ca3ac0afc17a8f11b5eb9cade02652f26bfa276c116"
     },
