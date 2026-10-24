@@ -2630,6 +2630,26 @@
       "sha256": "8949b6cacbdf2f41c7248a4b290c6c2bb7c19cb1a231699fd310d1e526e2d3f4"
     },
     {
+      "path": "evidence/12g-cold-ss0-variation/PROBE-RUN01-REPORT.TXT",
+      "sha256": "bc8a1535e256da0325a4b41a0421f67a4886104d9b6a6c7b53dda304c860a75b"
+    },
+    {
+      "path": "evidence/12g-cold-ss0-variation/RUN08-REPORT.TXT",
+      "sha256": "68329a8effd134ffc54afeac0efcac4a6d334898e20e46830797193ed3c8c219"
+    },
+    {
+      "path": "evidence/12g-cold-ss0-variation/RUN09-REPORT.TXT",
+      "sha256": "9ae5091367a604dffd0ef58771b20ab1f5a265a55fbc48418c65f26a44044379"
+    },
+    {
+      "path": "evidence/12g-cold-ss0-variation/RUN10-REPORT.TXT",
+      "sha256": "f07d3fab59a114d4ffe6885045a37b2d771a309fbf75d890e63602ca57359bd2"
+    },
+    {
+      "path": "evidence/12g-cold-ss0-variation/RUN11-REPORT.TXT",
+      "sha256": "67f92bb6a93ede58bcdcb28a255223057460233a97dc8ab027d987a99dba7b37"
+    },
+    {
       "path": "evidence/12g-probe-run00/REPORT.TXT",
       "sha256": "edbe5f63650f74483f5e0ca3ac0afc17a8f11b5eb9cade02652f26bfa276c116"
     },
@@ -2719,7 +2739,7 @@
     },
     {
       "path": "unlock/app.c",
-      "sha256": "f8bfd0f56052e5326f0538bd17d23f47dfb8456926adddddfc5dc2a43e7ac518"
+      "sha256": "95d58a9bf5803dbf2d467a758f47f3f77d6362d2f9fa34acb9703729f776ef7c"
     },
     {
       "path": "unlock/app.h",
@@ -2759,11 +2779,11 @@
     },
     {
       "path": "unlock/checks.c",
-      "sha256": "c4ea3aae85719b78c0bf198f6f11a8c0769ea9d078a65a0be4653e599e07d580"
+      "sha256": "541bbdcf8aaa7cbd6900b605f7f0fe2f3a1403806158ea2e1fbf478f38148e40"
     },
     {
       "path": "unlock/checks.h",
-      "sha256": "effaab2c4e08508419fb1ec17cb2f096910530fbc4eb8ddfebc4c0786263caa7"
+      "sha256": "9ffc4a2ec5917bef96ce03fc9233c1b3088e34ee3c0378fd019b691df1e94ed6"
     },
     {
       "path": "unlock/compat.c",
@@ -2931,7 +2951,7 @@
     },
     {
       "path": "unlock/tests/test_checks.c",
-      "sha256": "b089630b7bc1dcae9280fd54d6e6aadd8e2d3c3b1fa0d3526df3a0b64bab5767"
+      "sha256": "c5add6979c9f10b1878d3224d1718a0032b9d80c6f0f90e4b9a908009e2f47ba"
     },
     {
       "path": "unlock/tests/test_efi_transaction.c",

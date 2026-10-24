@@ -35,3 +35,11 @@ EFI_STATUS GuReleasePolicy(const GU_OPEN_RECORD *Records, UINTN Count,
                            EFI_HANDLE Target, EFI_HANDLE *Agent,
                            EFI_HANDLE Children[GU_MAX_TARGET_CHILDREN],
                            UINTN *ChildCount);
+
+/* Cold SS0 plausibility. The measured cold value varies by single bits
+   between cold boots on the 12G card (0x40132104, 0x40132114, 0x42132104
+   observed), so an exact match is not a reliable cold indicator. Accept a
+   value only if no 4-bit selector has bit 3 set: the unlock value is
+   0x88888888, so any partially or fully applied state is refused. PLM,
+   WPR2, GFW and FB checks remain the authoritative cold-state gates. */
+BOOLEAN GuColdSs0Plausible(UINT32 Ss0);

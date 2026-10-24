@@ -251,8 +251,10 @@ static EFI_STATUS ColdCheck(VOID) {
   UINT32 hi=GuRead32(0x1fa828),plm=GuRead32(GU_FEAT_PLM_OFFSET),ss0=GuRead32(GU_FEAT_SS0_OFFSET),ss1=GuRead32(GU_FEAT_SS1_OFFSET);
   GuLog("cold state: chip=%#x plm=%#x gfw=%#x/%#x/%#x WPR2_HI=%#x SS0=%#x SS1=%#x\n",
     GU_BOARD_CHIP,plm,s.plm,s.boot,s.cpuctl,hi,ss0,ss1);
+  if(ss0!=GU_BOARD_COLD_SS0)GuLog("cold SS0 differs from probe %#x (xor %#x); accepted only if no selector has bit 3 set: %u\n",
+    GU_BOARD_COLD_SS0,ss0^GU_BOARD_COLD_SS0,(unsigned)GuColdSs0Plausible(ss0));
   if(Gu.fault || gpu_unlock_gfw_assess(&s) || hi>>4 || plm!=GU_BOARD_COLD_FEAT_PLM ||
-    ss0!=GU_BOARD_COLD_SS0 || (ss1!=GU_BOARD_COLD_SS1 && ss1!=GU_BOARD_COLD_SS1_ALT) || GuRead32(0x1183a4)!=GU_BOARD_FB_MB)return EFI_NOT_READY;
+    !GuColdSs0Plausible(ss0) || (ss1!=GU_BOARD_COLD_SS1 && ss1!=GU_BOARD_COLD_SS1_ALT) || GuRead32(0x1183a4)!=GU_BOARD_FB_MB)return EFI_NOT_READY;
   return Gu.fault?EFI_DEVICE_ERROR:EFI_SUCCESS;
 }
 static EFI_STATUS PromCheck(VOID) {

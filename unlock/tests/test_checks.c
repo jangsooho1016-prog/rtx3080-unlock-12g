@@ -431,6 +431,17 @@ static void TestReleasePolicy(void) {
         "invalid arguments refused");
 }
 
+static void TestColdSs0(void) {
+  Check(GuColdSs0Plausible(0x40132104U), "12G probe cold SS0 accepted");
+  Check(GuColdSs0Plausible(0x40132114U), "12G RUN08-10 cold SS0 accepted");
+  Check(GuColdSs0Plausible(0x42132104U), "12G RUN11 cold SS0 accepted");
+  Check(GuColdSs0Plausible(0x46254040U), "10GB cold SS0 accepted");
+  Check(!GuColdSs0Plausible(0x88888888U), "unlocked SS0 refused");
+  Check(!GuColdSs0Plausible(0x40132184U), "one applied selector refused");
+  Check(!GuColdSs0Plausible(0xC0132104U), "top selector bit 3 refused");
+  Check(!GuColdSs0Plausible(0xffffffffU), "all-ones read refused");
+}
+
 int main(int Argc, char **Argv) {
   UINT32 Captured[64];
   if (Argc != 2 || !LoadCapture(Argv[1], Captured)) return 2;
@@ -440,6 +451,7 @@ int main(int Argc, char **Argv) {
   TestCapabilities();
   TestPaths();
   TestReleasePolicy();
+  TestColdSs0();
   if (Failures != 0) {
     fprintf(stderr, "%u/%u checks failed\n", Failures, Checks);
     return 1;

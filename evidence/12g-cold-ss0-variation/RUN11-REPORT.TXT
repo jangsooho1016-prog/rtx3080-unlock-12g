@@ -1,0 +1,75 @@
+RTX3080 UEFI unlock experiment v0.11
+RUN11
+Bus Master protocol state checks; hardware fix unproven; one manual attempt per launch.
+PIO readback is not an execution gate. This path does not independently verify TCM contents; FWSEC scratch/WPR results are required.
+CHECK stage=secure-boot status=0
+CHECK stage=watchdog status=0
+PCI enumeration: status=0 handles=28
+PCI target matches=1 status=0
+target location: status=0
+config[00]=220a10de 00100003 030000a1 00800010
+config[10]=84000000 0000000c 00000060 0000000c
+config[20]=00000064 00006001 00000000 38971462
+config[30]=85000000 00000060 00000000 000001ff
+config[40]=38971462 00000000 00000000 00000000
+config[50]=00000000 00000001 0023d6ce 00000000
+config[60]=48036801 00000008 00807805 00000000
+config[70]=00000000 00000000 0012b410 112c8de1
+config[80]=00092930 00454d04 11040140 00000000
+config[90]=00000000 00000000 00000000 00070813
+config[a0]=00000400 0180001e 001e0004 00000000
+config[b0]=00000000 01140009 00000000 00000000
+config[c0]=00000000 00000000 00050011 00b90000
+config[d0]=00ba0000 00000000 00000000 00000000
+config[e0]=00000000 00000000 00000000 00000000
+config[f0]=00000000 00000000 00000000 00000000
+target BDF=0:1:0.0 checks=1 pm=0x60 pcie=0x78 msi=0x68 msix=0
+CHECK stage=target status=0
+GOP enumeration: status=0 handles=3
+GOP[0] path_status=0 route=1 framebuffer=0x4000000000 bytes=8294400 mode=0 max_mode=5 info_bytes=36 console=0
+GOP[0] format=1 size=1920x1080 stride=1920
+GOP[1] path_status=0x8000000000000003 route=0 framebuffer=0 bytes=0 mode=0 max_mode=5 info_bytes=0 console=0
+GOP[1] console QueryMode: status=0 mode=0 info_bytes=36
+GOP[1] format=3 size=1920x1080 stride=1920
+GOP[2] path_status=0 route=2 framebuffer=0x6000000000 bytes=8847360 mode=0 max_mode=12 info_bytes=36 console=0
+GOP[2] RTX output tolerated until firmware driver release
+GOP result: valid=1 intel_physical=1 rtx_outputs=1
+CHECK stage=display status=0
+ownership: records=11 exclusive=0 status=0x800000000000000f
+owner[0] protocol=fe47349a attributes=0x2 count=3 agent=0x6dc5be98 controller=0x6dba7a98
+owner[1] protocol=fe47349a attributes=0x2 count=1 agent=0x6fca3fc0 controller=0x6dba7a98
+owner[2] protocol=3bc1b285 attributes=0x1 count=2 agent=0x6f7aef98 controller=0
+owner[3] protocol=09576e91 attributes=0x1 count=103 agent=0x6f7aef98 controller=0
+owner[4] protocol=09576e91 attributes=0x2 count=1 agent=0x6dc5be98 controller=0x6dba7a98
+owner[5] protocol=09576e91 attributes=0x8 count=1 agent=0x6dc5be98 controller=0x6c006298
+owner[6] protocol=09576e91 attributes=0x4 count=2 agent=0x6dc23318 controller=0x6dba7a98
+owner[7] protocol=09576e91 attributes=0x2 count=2 agent=0x6e87e598 controller=0x6dba7a98
+owner[8] protocol=4cf5b200 attributes=0x1 count=29 agent=0x6f7aef98 controller=0
+owner[9] protocol=4cf5b200 attributes=0x10 count=1 agent=0x6dc5be98 controller=0x6dba7a98
+owner[10] protocol=4cf5b200 attributes=0x2 count=2 agent=0x6dc23318 controller=0x6dba7a98
+ownership: records=11 exclusive=0 status=0
+owner[0] protocol=fe47349a attributes=0x2 count=3 agent=0x6dc5be98 controller=0x6dba7a98
+owner[1] protocol=fe47349a attributes=0x2 count=1 agent=0x6fca3fc0 controller=0x6dba7a98
+owner[2] protocol=3bc1b285 attributes=0x1 count=2 agent=0x6f7aef98 controller=0
+owner[3] protocol=09576e91 attributes=0x1 count=103 agent=0x6f7aef98 controller=0
+owner[4] protocol=09576e91 attributes=0x2 count=1 agent=0x6dc5be98 controller=0x6dba7a98
+owner[5] protocol=09576e91 attributes=0x8 count=1 agent=0x6dc5be98 controller=0x6c006298
+owner[6] protocol=09576e91 attributes=0x4 count=2 agent=0x6dc23318 controller=0x6dba7a98
+owner[7] protocol=09576e91 attributes=0x2 count=2 agent=0x6e87e598 controller=0x6dba7a98
+owner[8] protocol=4cf5b200 attributes=0x1 count=29 agent=0x6f7aef98 controller=0
+owner[9] protocol=4cf5b200 attributes=0x10 count=1 agent=0x6dc5be98 controller=0x6dba7a98
+owner[10] protocol=4cf5b200 attributes=0x2 count=2 agent=0x6dc23318 controller=0x6dba7a98
+release child[0]: handle=0x6c006298 gop=0 path=0 route=2 console=0
+release candidate: agent=0x6dc5be98 image=0x6dc5be98 source=0x6dba7a98 base=0x6fc83000 bytes=158432 version=0x60010 code_type=3 children=1
+Exclusive ownership deferred until manual U and explicit driver release.
+CHECK stage=ownership status=0
+target location: status=0
+target BDF=0:1:0.0 checks=1 pm=0x60 pcie=0x78 msi=0x68 msix=0
+CHECK stage=config-recheck status=0
+bar0 query: status=0
+bar0 descriptor: type=0 granularity=32 min=0x84000000 max=0x84ffffff length=0x1000000 translation=0
+CHECK stage=bar0 status=0
+chip: actual=0xb72000a1 expected=0xb72000a1
+cold state: chip=0xb72000a1 plm=0xffffff8f gfw=0x8b8f/0x3ff/0x10 WPR2_HI=0 SS0=0x42132104 SS1=0x7
+CHECK stage=cold-state status=0x8000000000000006
+FINAL status=0x8000000000000006 stage=cold-state attempted=0 driver_release=0 clean=1 chainload=0

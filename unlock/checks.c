@@ -241,3 +241,7 @@ EFI_STATUS GuReleasePolicy(const GU_OPEN_RECORD *Records, UINTN Count,
   *ChildCount = Found;
   return EFI_SUCCESS;
 }
+
+BOOLEAN GuColdSs0Plausible(UINT32 Ss0) {
+  return (Ss0 & 0x88888888U) == 0;
+}
